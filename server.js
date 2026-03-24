@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (Redesigned Professional Interface)
+// server.js – MRF OTP Service (Professional Grizzly‑style Dashboard)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -77,7 +77,7 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
                 }
             }
             if (attempt < maxAttempts) {
-                console.log(`No number, waiting 15 seconds...`);
+                console.log(`No number, waiting 15 seconds before next price tier...`);
                 await new Promise(r => setTimeout(r, 15000));
             }
         } catch (err) {
@@ -109,14 +109,14 @@ async function checkSmsStatus(activationId) {
 }
 
 // ========================
-// FRONTEND – NEW PROFESSIONAL DESIGN
+// FRONTEND – Grizzly‑style Dashboard
 // ========================
 const htmlTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>MRF OTP Service</title>
+    <title>MRF Portal – OTP Service</title>
     <style>
         * {
             margin: 0;
@@ -126,70 +126,60 @@ const htmlTemplate = `<!DOCTYPE html>
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-color);
-            transition: background 0.3s, color 0.3s;
-        }
-
-        /* Light / Dark Mode */
-        :root {
-            --bg-color: #f8fafc;
-            --text-color: #0f172a;
-            --card-bg: #ffffff;
-            --border-color: #e2e8f0;
-            --sidebar-bg: #ffffff;
-            --hover-bg: #f1f5f9;
-            --btn-primary: #22c55e;
-            --btn-primary-hover: #16a34a;
-            --btn-danger: #ef4444;
-            --btn-warning: #fbbf24;
-        }
-        body.dark {
-            --bg-color: #0f172a;
-            --text-color: #e2e8f0;
-            --card-bg: #1e293b;
-            --border-color: #334155;
-            --sidebar-bg: #1e293b;
-            --hover-bg: #334155;
+            background: #f0f2f5;
+            color: #1e293b;
         }
 
         /* Layout */
-        .app {
+        .dashboard {
             display: flex;
             min-height: 100vh;
         }
 
         /* Sidebar */
         .sidebar {
-            width: 80px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--border-color);
+            width: 260px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 1.5rem 0;
             position: sticky;
             top: 0;
             height: 100vh;
+            padding: 2rem 1rem;
         }
-        .sidebar-icon {
-            width: 48px;
-            height: 48px;
+        .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 2rem;
+            padding-left: 1rem;
+        }
+        .sidebar-nav {
+            flex: 1;
+        }
+        .nav-item {
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
             border-radius: 12px;
-            margin-bottom: 1rem;
             cursor: pointer;
             transition: background 0.2s;
-            font-size: 1.5rem;
+            font-weight: 500;
         }
-        .sidebar-icon:hover {
-            background: var(--hover-bg);
+        .nav-item:hover {
+            background: #f1f5f9;
         }
-        .sidebar-icon.active {
-            background: var(--btn-primary);
+        .nav-item.active {
+            background: #22c55e;
             color: white;
+        }
+        .nav-icon {
+            width: 24px;
+            text-align: center;
+            font-size: 1.2rem;
         }
 
         /* Main content */
@@ -198,17 +188,10 @@ const htmlTemplate = `<!DOCTYPE html>
             padding: 2rem;
             overflow-y: auto;
         }
-
-        /* Right panel */
-        .right-panel {
-            width: 320px;
-            background: var(--card-bg);
-            border-left: 1px solid var(--border-color);
-            padding: 1.5rem;
-            position: sticky;
-            top: 0;
-            height: 100vh;
-            overflow-y: auto;
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
         }
 
         /* Country cards */
@@ -216,19 +199,18 @@ const htmlTemplate = `<!DOCTYPE html>
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 1.5rem;
-            margin-top: 2rem;
         }
         .country-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
+            background: white;
             border-radius: 16px;
             padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
             transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
         }
         .country-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
         }
         .country-flag {
             font-size: 2rem;
@@ -237,21 +219,20 @@ const htmlTemplate = `<!DOCTYPE html>
         .country-name {
             font-weight: 600;
             font-size: 1.1rem;
-            margin-bottom: 0.25rem;
         }
         .country-code {
             color: #64748b;
             font-size: 0.9rem;
-            margin-bottom: 1rem;
+            margin: 0.25rem 0 1rem;
         }
         .country-price {
             font-size: 1.5rem;
             font-weight: bold;
-            color: var(--btn-primary);
+            color: #22c55e;
             margin: 1rem 0;
         }
         .buy-btn {
-            background: var(--btn-primary);
+            background: #22c55e;
             color: white;
             border: none;
             width: 100%;
@@ -262,10 +243,86 @@ const htmlTemplate = `<!DOCTYPE html>
             transition: background 0.2s;
         }
         .buy-btn:hover {
-            background: var(--btn-primary-hover);
+            background: #16a34a;
         }
 
-        /* Modal */
+        /* Right panel */
+        .right-panel {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            padding: 2rem 1rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .balance-card {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            border: 1px solid #e2e8f0;
+        }
+        .balance-label {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        .balance-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #22c55e;
+        }
+        .add-money-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+        .active-orders {
+            margin-top: 1.5rem;
+        }
+        .order-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+        .order-country {
+            font-weight: 600;
+        }
+        .order-status {
+            font-size: 0.8rem;
+            color: #fbbf24;
+        }
+        .view-order-btn {
+            background: none;
+            border: none;
+            color: #22c55e;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+
+        /* Modal for payment / order */
         .modal {
             display: none;
             position: fixed;
@@ -273,40 +330,24 @@ const htmlTemplate = `<!DOCTYPE html>
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.6);
             z-index: 1000;
             justify-content: center;
             align-items: center;
         }
         .modal-content {
-            background: var(--card-bg);
+            background: white;
             border-radius: 24px;
             padding: 2rem;
             max-width: 500px;
             width: 90%;
-            border: 1px solid var(--border-color);
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        .order-number {
-            font-size: 1.5rem;
-            font-weight: bold;
-            background: #f1f5f9;
-            padding: 0.5rem;
-            border-radius: 8px;
-            text-align: center;
-            margin: 1rem 0;
-        }
-        .otp-code {
-            font-size: 1.5rem;
-            font-weight: bold;
-            background: #fbbf24;
-            color: black;
-            padding: 0.5rem;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .timer {
-            font-family: monospace;
-            font-size: 1.25rem;
+        .payment-info {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 16px;
             margin: 1rem 0;
         }
         .button-group {
@@ -318,78 +359,38 @@ const htmlTemplate = `<!DOCTYPE html>
             flex: 1;
             padding: 0.75rem;
             border: none;
-            border-radius: 12px;
+            border-radius: 40px;
             font-weight: 600;
             cursor: pointer;
         }
-        .replace-btn { background: var(--btn-warning); color: black; }
-        .cancel-btn { background: var(--btn-danger); color: white; }
-        .complete-btn { background: var(--btn-primary); color: white; }
-
-        /* Right panel balance & add money */
-        .balance-card {
-            background: var(--bg-color);
-            border-radius: 16px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-        .balance-amount {
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--btn-primary);
-        }
-        .add-money-btn {
-            background: var(--btn-primary);
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 12px;
-            margin-top: 0.5rem;
-            cursor: pointer;
-        }
+        .replace-btn { background: #fbbf24; color: black; }
+        .cancel-btn { background: #ef4444; color: white; }
+        .complete-btn { background: #22c55e; color: white; }
 
         /* Login / Signup forms */
         .auth-container {
             max-width: 400px;
             margin: 2rem auto;
-            background: var(--card-bg);
+            background: white;
             padding: 2rem;
             border-radius: 24px;
-            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         .auth-container input {
             width: 100%;
             padding: 0.75rem;
             margin: 0.5rem 0;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
-            color: var(--text-color);
         }
         .google-btn {
             background: white;
-            color: #0f172a;
             border: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
             margin-top: 1rem;
-        }
-
-        /* Day/night toggle */
-        .theme-toggle {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 40px;
-            padding: 0.5rem 1rem;
-            cursor: pointer;
-            z-index: 100;
         }
 
         /* Responsive */
@@ -399,7 +400,7 @@ const htmlTemplate = `<!DOCTYPE html>
             }
         }
         @media (max-width: 768px) {
-            .app {
+            .dashboard {
                 flex-direction: column;
             }
             .sidebar {
@@ -407,7 +408,7 @@ const htmlTemplate = `<!DOCTYPE html>
                 height: auto;
                 flex-direction: row;
                 justify-content: space-evenly;
-                padding: 0.5rem;
+                padding: 1rem;
             }
             .right-panel {
                 width: 100%;
@@ -418,20 +419,22 @@ const htmlTemplate = `<!DOCTYPE html>
     </style>
 </head>
 <body>
-    <div class="app">
-        <!-- Sidebar with service icons -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-icon active" data-service="whatsapp">📱</div>
-            <div class="sidebar-icon" data-service="telegram">✈️</div>
-            <div class="sidebar-icon" data-service="facebook">📘</div>
-            <div class="sidebar-icon" data-service="google">🔍</div>
-            <div class="sidebar-icon" data-service="instagram">📷</div>
-            <!-- more services can be added here -->
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">MRF Portal</div>
+            <div class="sidebar-nav">
+                <div class="nav-item active" data-service="whatsapp">
+                    <span class="nav-icon">📱</span>
+                    <span>WhatsApp</span>
+                </div>
+                <!-- Additional services can be added here later -->
+            </div>
         </div>
 
-        <!-- Main content area (countries) -->
+        <!-- Main content -->
         <div class="main" id="main">
-            <h1 id="service-title">WhatsApp Numbers</h1>
+            <div class="section-title">Available WhatsApp Numbers</div>
             <div class="country-grid" id="country-list"></div>
         </div>
 
@@ -439,50 +442,70 @@ const htmlTemplate = `<!DOCTYPE html>
         <div class="right-panel" id="right-panel">
             <div id="user-info" style="display: none;">
                 <div class="balance-card">
-                    <div>Your Balance</div>
+                    <div class="balance-label">Your Balance</div>
                     <div class="balance-amount" id="user-balance">0</div>
                     <div>PKR</div>
                     <button class="add-money-btn" id="add-money-btn">Add Money</button>
                 </div>
-                <div id="active-orders"></div>
-                <button id="logout-btn" style="margin-top: 1rem; width:100%; background:#ef4444; color:white; border:none; padding:0.75rem; border-radius:12px;">Logout</button>
+                <div class="active-orders">
+                    <h4>Active Orders</h4>
+                    <div id="active-orders-list"></div>
+                </div>
+                <button class="logout-btn" id="logout-btn">Logout</button>
             </div>
             <div id="login-prompt">
-                <div class="auth-container" style="margin:0;">
+                <div class="auth-container">
                     <h3>Login</h3>
                     <input type="email" id="login-email" placeholder="Email">
                     <input type="password" id="login-password" placeholder="Password">
-                    <button id="login-btn" style="width:100%; margin-top:1rem;">Login</button>
+                    <button id="login-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Login</button>
                     <button id="google-signin" class="google-btn">🔐 Sign in with Google</button>
-                    <p style="margin-top:1rem;">No account? <a href="#" id="show-register">Sign up</a></p>
+                    <p style="margin-top:1rem; text-align:center;">No account? <a href="#" id="show-register">Sign up</a></p>
                 </div>
                 <div id="register-form" style="display:none;">
-                    <div class="auth-container" style="margin:0;">
+                    <div class="auth-container">
                         <h3>Sign Up</h3>
                         <input type="text" id="reg-name" placeholder="Full Name">
                         <input type="email" id="reg-email" placeholder="Email">
                         <input type="password" id="reg-password" placeholder="Password">
-                        <button id="register-btn">Register</button>
-                        <p>Already have an account? <a href="#" id="show-login">Login</a></p>
+                        <button id="register-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Register</button>
+                        <p style="margin-top:1rem; text-align:center;">Already have an account? <a href="#" id="show-login">Login</a></p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal for order details -->
-    <div id="order-modal" class="modal">
+    <!-- Payment Modal (Add Money) -->
+    <div id="payment-modal" class="modal">
         <div class="modal-content">
-            <h3>Order Details</h3>
-            <div id="order-number">Number: </div>
-            <div id="order-timer" class="timer"></div>
-            <div id="order-otp"></div>
-            <div class="button-group" id="order-buttons"></div>
-            <button id="close-modal" style="margin-top:1rem;">Close</button>
+            <h3>Add Funds</h3>
+            <div class="payment-info">
+                <p><strong>We only accept SadaPay payments</strong></p>
+                <p>Minimum deposit: 150 PKR</p>
+                <p>Account Number: <strong>03439898333</strong></p>
+                <p>Account Name: <strong>Nihayat</strong></p>
+            </div>
+            <form id="addFundsForm" enctype="multipart/form-data">
+                <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:12px;">
+                <input type="file" name="screenshot" accept="image/*" required style="margin-top:1rem;">
+                <button type="submit" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
+            </form>
+            <button id="close-payment-modal" style="margin-top:1rem;">Cancel</button>
         </div>
     </div>
 
-    <div class="theme-toggle" id="theme-toggle">🌙 Dark</div>
+    <!-- Order Details Modal -->
+    <div id="order-modal" class="modal">
+        <div class="modal-content">
+            <h3>Order Details</h3>
+            <div id="order-number"></div>
+            <div id="order-timer" style="margin:1rem 0;"></div>
+            <div id="order-otp"></div>
+            <div id="order-buttons" class="button-group"></div>
+            <button id="close-order-modal" style="margin-top:1rem;">Close</button>
+        </div>
+    </div>
 
     <script>
         let currentUser = null;
@@ -513,21 +536,20 @@ const htmlTemplate = `<!DOCTYPE html>
             return res.json();
         }
 
-        async function loadCountries(service = 'whatsapp') {
+        async function loadCountries() {
             try {
                 const countries = await fetchJSON('/api/countries');
                 const container = document.getElementById('country-list');
-                container.innerHTML = countries.map(c => \`
-                    <div class="country-card" data-id="\${c.countryId}" data-name="\${c.name}" data-price="\${c.price}">
-                        <div class="country-flag">\${c.flag}</div>
-                        <div class="country-name">\${c.name}</div>
-                        <div class="country-code">\${c.code}</div>
-                        <div class="country-price">\${c.price} PKR</div>
+                container.innerHTML = countries.map(c => `
+                    <div class="country-card" data-id="${c.countryId}" data-name="${c.name}" data-price="${c.price}">
+                        <div class="country-flag">${c.flag}</div>
+                        <div class="country-name">${c.name}</div>
+                        <div class="country-code">${c.code}</div>
+                        <div class="country-price">${c.price} PKR</div>
                         <button class="buy-btn">Buy Now</button>
                     </div>
-                \`).join('');
-                // attach buy events
-                document.querySelectorAll('.buy-btn').forEach((btn, idx) => {
+                `).join('');
+                document.querySelectorAll('.buy-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const card = btn.closest('.country-card');
@@ -572,16 +594,16 @@ const htmlTemplate = `<!DOCTYPE html>
                 const order = await fetchJSON('/api/orders/' + orderId);
                 activeOrder = order;
                 const modal = document.getElementById('order-modal');
-                document.getElementById('order-number').innerHTML = \`Number: \${order.number || 'Processing...'}\`;
+                document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.number || 'Processing...'}`;
                 if (order.smsCode) {
-                    document.getElementById('order-otp').innerHTML = \`<div class="otp-code">OTP: \${order.smsCode}</div>\`;
+                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${order.smsCode}</div>`;
                 } else {
                     document.getElementById('order-otp').innerHTML = '';
                 }
                 updateTimerDisplay(order);
-                updateButtons(order);
+                updateOrderButtons(order);
                 modal.style.display = 'flex';
-                // start polling for OTP if active
+                // start OTP polling
                 if (order.status === 'active' && !order.smsCode) {
                     if (otpInterval) clearInterval(otpInterval);
                     otpInterval = setInterval(async () => {
@@ -590,8 +612,8 @@ const htmlTemplate = `<!DOCTYPE html>
                             if (updated.smsCode) {
                                 clearInterval(otpInterval);
                                 activeOrder = updated;
-                                document.getElementById('order-otp').innerHTML = \`<div class="otp-code">OTP: \${updated.smsCode}</div>\`;
-                                updateButtons(updated);
+                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.smsCode}</div>`;
+                                updateOrderButtons(updated);
                                 showAlert('OTP received!', 'success');
                             }
                         } catch (err) {}
@@ -608,8 +630,8 @@ const htmlTemplate = `<!DOCTYPE html>
                             if (updated.smsCode) {
                                 clearInterval(timerInterval);
                                 clearInterval(otpInterval);
-                                document.getElementById('order-otp').innerHTML = \`<div class="otp-code">OTP: \${updated.smsCode}</div>\`;
-                                updateButtons(updated);
+                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.smsCode}</div>`;
+                                updateOrderButtons(updated);
                             }
                         } catch (err) {}
                     } else {
@@ -628,14 +650,14 @@ const htmlTemplate = `<!DOCTYPE html>
             const diff = Math.max(0, expiry - now);
             const mins = Math.floor(diff / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
-            document.getElementById('order-timer').innerHTML = \`Time remaining: \${mins}:\${secs.toString().padStart(2,'0')}\`;
+            document.getElementById('order-timer').innerHTML = `Time remaining: ${mins}:${secs.toString().padStart(2,'0')}`;
             if (diff <= 0) {
                 document.getElementById('order-timer').innerHTML = 'Expired';
-                updateButtons(order);
+                updateOrderButtons(order);
             }
         }
 
-        function updateButtons(order) {
+        function updateOrderButtons(order) {
             const container = document.getElementById('order-buttons');
             container.innerHTML = '';
             if (order.smsCode) {
@@ -649,10 +671,10 @@ const htmlTemplate = `<!DOCTYPE html>
                 return;
             }
             if (order.status === 'active') {
-                container.innerHTML = \`
+                container.innerHTML = `
                     <button class="replace-btn" id="replace-order">🔄 Replace Number</button>
                     <button class="cancel-btn" id="cancel-order">❌ Cancel & Refund</button>
-                \`;
+                `;
                 document.getElementById('replace-order').addEventListener('click', async () => {
                     if (confirm('Replace number? Current number will be cancelled.')) {
                         const res = await fetch('/api/orders/' + order.id + '/replace', { method: 'POST' });
@@ -676,8 +698,8 @@ const htmlTemplate = `<!DOCTYPE html>
                         }
                     }
                 });
-            } else if (order.status === 'cancelled') {
-                container.innerHTML = '<p>Order cancelled</p>';
+            } else {
+                container.innerHTML = '<p>Order is no longer active.</p>';
             }
         }
 
@@ -686,22 +708,27 @@ const htmlTemplate = `<!DOCTYPE html>
             const user = await fetchJSON('/api/me');
             currentUser = user;
             document.getElementById('user-balance').innerText = user.balance;
-            // load active orders (simplified)
+            // load active orders
             const orders = await fetchJSON('/api/orders');
-            const activeOrders = orders.filter(o => o.status === 'active' && !o.smsCode);
-            const container = document.getElementById('active-orders');
-            if (activeOrders.length) {
-                container.innerHTML = '<h4>Active Orders</h4>' + activeOrders.map(o => \`
-                    <div style="margin-bottom:0.5rem; padding:0.5rem; background:var(--bg-color); border-radius:8px;">
-                        \${o.country} - \${o.price} PKR<br>
-                        <button onclick="openOrderModal(\${o.id})">View</button>
+            const active = orders.filter(o => o.status === 'active' && !o.smsCode);
+            const container = document.getElementById('active-orders-list');
+            if (active.length) {
+                container.innerHTML = active.map(o => `
+                    <div class="order-item">
+                        <div class="order-country">${o.country} – ${o.price} PKR</div>
+                        <div class="order-status">Waiting for OTP</div>
+                        <button class="view-order-btn" data-id="${o.id}">View Details</button>
                     </div>
-                \`).join('');
+                `).join('');
+                document.querySelectorAll('.view-order-btn').forEach(btn => {
+                    btn.addEventListener('click', () => openOrderModal(btn.dataset.id));
+                });
             } else {
                 container.innerHTML = '<p>No active orders</p>';
             }
         }
 
+        // Auth functions
         async function login(email, password) {
             const res = await fetch('/api/login', {
                 method: 'POST',
@@ -735,7 +762,7 @@ const htmlTemplate = `<!DOCTYPE html>
             currentUser = null;
             document.getElementById('user-info').style.display = 'none';
             document.getElementById('login-prompt').style.display = 'block';
-            document.getElementById('active-orders').innerHTML = '';
+            document.getElementById('active-orders-list').innerHTML = '';
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
         }
@@ -788,37 +815,43 @@ const htmlTemplate = `<!DOCTYPE html>
         });
         document.getElementById('logout-btn').addEventListener('click', logout);
         document.getElementById('add-money-btn').addEventListener('click', () => {
-            window.location.href = '/wallet'; // we'll implement wallet page later, but for now just redirect to /wallet which we need to add
-            // For simplicity, we'll show a modal or navigate to a new page. Since we don't have a wallet page yet, we'll just show an alert.
-            alert('Please go to the Wallet page (use the existing wallet page).');
+            document.getElementById('payment-modal').style.display = 'flex';
         });
-        document.getElementById('close-modal').addEventListener('click', () => {
+        document.getElementById('close-payment-modal').addEventListener('click', () => {
+            document.getElementById('payment-modal').style.display = 'none';
+        });
+        document.getElementById('close-order-modal').addEventListener('click', () => {
             document.getElementById('order-modal').style.display = 'none';
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
         });
-
-        // Google sign-in: for now just use normal sign-up
         document.getElementById('google-signin').addEventListener('click', () => {
             showRegisterForm();
         });
 
-        // Theme toggle
-        const toggle = document.getElementById('theme-toggle');
-        toggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark');
-            toggle.textContent = document.body.classList.contains('dark') ? '☀️ Light' : '🌙 Dark';
+        // Add funds form submission
+        document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
+            if (res.ok) {
+                showAlert('Payment screenshot submitted. It will be reviewed soon.', 'success');
+                document.getElementById('payment-modal').style.display = 'none';
+                e.target.reset();
+            } else {
+                const err = await res.text();
+                showAlert(err, 'error');
+            }
         });
 
-        // Service switching (sidebar)
-        document.querySelectorAll('.sidebar-icon').forEach(icon => {
-            icon.addEventListener('click', () => {
-                document.querySelectorAll('.sidebar-icon').forEach(i => i.classList.remove('active'));
-                icon.classList.add('active');
-                const service = icon.dataset.service;
-                document.getElementById('service-title').innerText = service.charAt(0).toUpperCase() + service.slice(1) + ' Numbers';
-                // For now, the same country list is used for all services (just WhatsApp). We can later extend.
+        // Sidebar service switching (only WhatsApp active for now)
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                // For now, always show WhatsApp numbers; later you can change based on service.
                 loadCountries();
+                document.querySelector('.section-title').innerText = `Available ${item.querySelector('span:last-child').innerText} Numbers`;
             });
         });
 
@@ -830,7 +863,7 @@ const htmlTemplate = `<!DOCTYPE html>
 </html>`;
 
 // ========================
-// BACKEND ROUTES (unchanged, except we add a /wallet route if needed)
+// BACKEND ROUTES (unchanged – only wallet page is added)
 // ========================
 
 app.get('/', (req, res) => {
@@ -1070,20 +1103,6 @@ app.post('/api/add-funds', upload.single('screenshot'), (req, res) => {
     };
     transactions.push(transaction);
     res.send('OK');
-});
-
-// A simple wallet page (just a placeholder – can be enhanced later)
-app.get('/wallet', (req, res) => {
-    res.send(`
-        <html><body><h1>Add Funds</h1>
-        <form action="/api/add-funds" method="post" enctype="multipart/form-data">
-            <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required>
-            <input type="file" name="screenshot" accept="image/*" required>
-            <button type="submit">Submit</button>
-        </form>
-        <a href="/">Back to Home</a>
-        </body></html>
-    `);
 });
 
 app.use('/uploads', express.static('uploads'));
