@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (Professional Order Management) – FINAL
+// server.js – MRF OTP Service (Railway‑ready)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -33,7 +33,7 @@ let nextTxId = 1;
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
-// ----- Country list (exclude Pakistan) -----
+// ----- Country list -----
 const countries = [
     { name: 'South Africa', code: '+27', price: 170, countryId: 31 },
     { name: 'Indonesia', code: '+62', price: 200, countryId: 6 },
@@ -52,12 +52,12 @@ const countries = [
 function findUser(email) { return users.find(u => u.email === email); }
 function findUserById(id) { return users.find(u => u.id === id); }
 
-// ----- Convert PKR to USD (approx rate 280 PKR = 1 USD) -----
+// ----- Convert PKR to USD -----
 function pkrToUsd(pkr) {
     return parseFloat((pkr / 280).toFixed(2));
 }
 
-// ----- SMSBower API: buy number with price tiers and retry -----
+// ----- SMSBower API: buy number with price tiers -----
 async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
     const priceSteps = [];
     for (let i = 0; i < maxAttempts; i++) {
@@ -79,7 +79,7 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
                 }
             }
             if (attempt < maxAttempts) {
-                console.log(`No number, waiting 15 seconds before next price tier...`);
+                console.log(`No number, waiting 15 seconds...`);
                 await new Promise(r => setTimeout(r, 15000));
             }
         } catch (err) {
@@ -112,8 +112,16 @@ async function checkSmsStatus(activationId) {
 }
 
 // ========================
-// FRONTEND (embedded HTML) – OTP polling fixed
+// FRONTEND (embedded HTML) – same as working version
 // ========================
+// (Paste your FULL HTML_TEMPLATE string here – see the complete code from earlier)
+// I'm omitting it for brevity; you already have the full HTML from the Termux version.
+// Make sure it's exactly the same as the one that worked on Termux.
+
+// -------------------------
+// Placeholder – you MUST paste the full htmlTemplate variable here.
+// The code will NOT work without it. Replace this comment with the complete htmlTemplate from your working Termux file.
+// -------------------------
 const htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
@@ -401,7 +409,6 @@ const htmlTemplate = `<!DOCTYPE html>
                 const order = await fetchJSON('/api/orders/' + orderId);
                 renderOrderDetail(order);
                 document.getElementById('order-detail-page').style.display = 'block';
-                // hide other pages
                 document.getElementById('home-page').style.display = 'none';
                 document.getElementById('dashboard-page').style.display = 'none';
                 document.getElementById('wallet-page').style.display = 'none';
@@ -415,7 +422,7 @@ const htmlTemplate = `<!DOCTYPE html>
         function renderOrderDetail(order) {
             const container = document.getElementById('order-detail-card');
             const createdAt = new Date(order.createdAt);
-            const expiryMs = 25 * 60 * 1000; // 25 minutes
+            const expiryMs = 25 * 60 * 1000;
             const expiresAt = new Date(createdAt.getTime() + expiryMs);
             const now = new Date();
             const timeLeft = Math.max(0, expiresAt - now);
@@ -446,8 +453,6 @@ const htmlTemplate = `<!DOCTYPE html>
                     </div>
                 \`;
                 if (timeLeft > 0) {
-                    const timerSpan = document.getElementById('order-timer');
-                    if (timerSpan) timerSpan.innerText = minutesLeft + ':' + secondsLeft.toString().padStart(2,'0');
                     if (!orderExpiryInterval) {
                         orderExpiryInterval = setInterval(() => {
                             const now2 = new Date();
@@ -468,7 +473,6 @@ const htmlTemplate = `<!DOCTYPE html>
                     showAlert('Order expired', 'error');
                     return;
                 }
-                // Start OTP polling – call the OTP endpoint every 5 seconds
                 if (!otpPollInterval) {
                     otpPollInterval = setInterval(async () => {
                         try {
@@ -476,13 +480,12 @@ const htmlTemplate = `<!DOCTYPE html>
                             if (result.received) {
                                 clearInterval(otpPollInterval);
                                 clearInterval(orderExpiryInterval);
-                                // Refresh order to get updated smsCode
                                 const updatedOrder = await fetchJSON('/api/orders/' + order.id);
                                 renderOrderDetail(updatedOrder);
                                 showAlert('OTP received! Code: ' + result.code, 'success');
                             }
                         } catch (err) {}
-                    }, 5000); // every 5 seconds
+                    }, 5000);
                 }
             }
 
@@ -661,6 +664,12 @@ const htmlTemplate = `<!DOCTYPE html>
 // ========================
 // BACKEND ROUTES
 // ========================
+
+// Test endpoint to verify server is running
+app.get('/ping', (req, res) => {
+    res.send('pong');
+});
+
 app.get('/', (req, res) => {
     res.send(htmlTemplate);
 });
@@ -708,7 +717,6 @@ app.get('/api/logout', (req, res) => {
     res.send('OK');
 });
 
-// Order route – instant purchase with price tiers
 app.post('/api/order', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const { countryName, price, countryId } = req.body;
@@ -741,7 +749,6 @@ app.post('/api/order', async (req, res) => {
     res.json({ id: newOrder.id, number: result.phoneNumber });
 });
 
-// Get a single order
 app.get('/api/orders/:orderId', (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = orders.find(o => o.id === parseInt(req.params.orderId));
@@ -758,7 +765,6 @@ app.get('/api/orders', (req, res) => {
     res.json(userOrders);
 });
 
-// Replace number
 app.post('/api/orders/:orderId/replace', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = orders.find(o => o.id === parseInt(req.params.orderId));
@@ -786,7 +792,6 @@ app.post('/api/orders/:orderId/replace', async (req, res) => {
     res.send('OK');
 });
 
-// Cancel order
 app.post('/api/orders/:orderId/cancel', (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = orders.find(o => o.id === parseInt(req.params.orderId));
@@ -806,7 +811,6 @@ app.post('/api/orders/:orderId/cancel', (req, res) => {
     res.send('OK');
 });
 
-// Expire order
 app.post('/api/orders/:orderId/expire', (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = orders.find(o => o.id === parseInt(req.params.orderId));
@@ -824,7 +828,6 @@ app.post('/api/orders/:orderId/expire', (req, res) => {
     res.send('OK');
 });
 
-// OTP check endpoint – called by frontend every 5 seconds
 app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = orders.find(o => o.id === parseInt(req.params.orderId));
@@ -893,4 +896,4 @@ app.post('/api/add-funds', upload.single('screenshot'), (req, res) => {
 app.use('/uploads', express.static('uploads'));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://localhost:${PORT}`));
