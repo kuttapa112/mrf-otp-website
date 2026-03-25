@@ -2,58 +2,318 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>MRF Portal – OTP Service</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1e293b; }
-        .dashboard { display: flex; min-height: 100vh; }
-        .sidebar { width: 260px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; padding: 2rem 1rem; }
-        .sidebar-header { font-size: 1.5rem; font-weight: bold; color: #22c55e; margin-bottom: 2rem; padding-left: 1rem; }
-        .sidebar-nav { flex: 1; }
-        .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; margin: 0.25rem 0; border-radius: 12px; cursor: pointer; transition: background 0.2s; font-weight: 500; }
-        .nav-item:hover { background: #f1f5f9; }
-        .nav-item.active { background: #22c55e; color: white; }
-        .nav-icon { width: 24px; text-align: center; font-size: 1.2rem; }
-        .main { flex: 1; padding: 2rem; overflow-y: auto; }
-        .section-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
-        .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
-        .country-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; }
-        .country-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
-        .country-flag { font-size: 2rem; margin-bottom: 0.5rem; }
-        .country-name { font-weight: 600; font-size: 1.1rem; }
-        .country-code { color: #64748b; font-size: 0.9rem; margin: 0.25rem 0 1rem; }
-        .country-price { font-size: 1.5rem; font-weight: bold; color: #22c55e; margin: 1rem 0; }
-        .buy-btn { background: #22c55e; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-        .buy-btn:hover { background: #16a34a; }
-        .right-panel { width: 320px; background: white; border-left: 1px solid #e2e8f0; padding: 2rem 1rem; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-        .balance-card { background: #f8fafc; border-radius: 20px; padding: 1.5rem; text-align: center; margin-bottom: 2rem; border: 1px solid #e2e8f0; }
-        .balance-label { font-size: 0.9rem; color: #64748b; }
-        .balance-amount { font-size: 2.5rem; font-weight: bold; color: #22c55e; }
-        .add-money-btn { background: #22c55e; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 40px; font-weight: 600; margin-top: 1rem; cursor: pointer; }
-        .active-orders { margin-top: 1.5rem; }
-        .order-item { background: #f8fafc; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px solid #e2e8f0; }
-        .order-country { font-weight: 600; }
-        .order-status { font-size: 0.8rem; color: #fbbf24; }
-        .view-order-btn { background: none; border: none; color: #22c55e; cursor: pointer; margin-top: 0.5rem; font-size: 0.8rem; }
-        .logout-btn { background: #ef4444; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 40px; font-weight: 600; margin-top: 1rem; cursor: pointer; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; border-radius: 24px; padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
-        .payment-info { background: #f8fafc; padding: 1rem; border-radius: 16px; margin: 1rem 0; }
-        .button-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
-        .button-group button { flex: 1; padding: 0.75rem; border: none; border-radius: 40px; font-weight: 600; cursor: pointer; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1e293b;
+        }
+
+        .dashboard {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            padding: 2rem 1rem;
+        }
+        .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 2rem;
+            padding-left: 1rem;
+        }
+        .sidebar-nav {
+            flex: 1;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+        .nav-item:hover {
+            background: #f1f5f9;
+        }
+        .nav-item.active {
+            background: #22c55e;
+            color: white;
+        }
+        .nav-icon {
+            width: 24px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        .main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .country-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .country-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .country-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+        .country-flag {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .country-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .country-code {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin: 0.25rem 0 1rem;
+        }
+        .country-price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #22c55e;
+            margin: 1rem 0;
+        }
+        .buy-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .buy-btn:hover {
+            background: #16a34a;
+        }
+
+        .right-panel {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            padding: 2rem 1rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .balance-card {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            border: 1px solid #e2e8f0;
+        }
+        .balance-label {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        .balance-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #22c55e;
+        }
+        .add-money-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+        .active-orders {
+            margin-top: 1.5rem;
+        }
+        .order-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+        .order-country {
+            font-weight: 600;
+        }
+        .order-status {
+            font-size: 0.8rem;
+            color: #fbbf24;
+        }
+        .view-order-btn {
+            background: none;
+            border: none;
+            color: #22c55e;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+
+        /* Admin panel */
+        .admin-panel {
+            margin-top: 2rem;
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        .admin-panel h3 {
+            margin-bottom: 1rem;
+        }
+        .transaction-item {
+            background: #f8fafc;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        .approve-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-left: 1rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .payment-info {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 16px;
+            margin: 1rem 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .button-group button {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+        }
         .replace-btn { background: #fbbf24; color: black; }
         .cancel-btn { background: #ef4444; color: white; }
         .complete-btn { background: #22c55e; color: white; }
-        .auth-container { max-width: 400px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .auth-container input { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border: 1px solid #e2e8f0; border-radius: 12px; }
-        .google-btn { background: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
-        @media (max-width: 1024px) { .right-panel { width: 280px; } }
-        @media (max-width: 768px) { .dashboard { flex-direction: column; } .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; } .right-panel { width: 100%; height: auto; position: static; } }
+
+        .auth-container {
+            max-width: 400px;
+            margin: 2rem auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .auth-container input {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+        .google-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 1024px) {
+            .right-panel { width: 280px; }
+        }
+        @media (max-width: 768px) {
+            .dashboard { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; }
+            .right-panel { width: 100%; height: auto; position: static; }
+        }
     </style>
 </head>
 <body>
     <div class="dashboard">
+        <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">MRF Portal</div>
             <div class="sidebar-nav">
@@ -63,11 +323,28 @@
                 </div>
             </div>
         </div>
-        <div class="main">
+
+        <!-- Main content -->
+        <div class="main" id="main">
             <div class="section-title">Available WhatsApp Numbers</div>
             <div class="country-grid" id="country-list"></div>
+
+            <!-- Admin Panel (visible only for admin) -->
+            <div id="admin-panel" class="admin-panel" style="display: none;">
+                <h3>Admin Panel</h3>
+                <div id="admin-orders-section">
+                    <h4>All Orders</h4>
+                    <div id="admin-orders-list"></div>
+                </div>
+                <div id="admin-transactions-section">
+                    <h4>Pending Transactions</h4>
+                    <div id="admin-transactions-list"></div>
+                </div>
+            </div>
         </div>
-        <div class="right-panel">
+
+        <!-- Right panel -->
+        <div class="right-panel" id="right-panel">
             <div id="user-info" style="display: none;">
                 <div class="balance-card">
                     <div class="balance-label">Your Balance</div>
@@ -104,6 +381,7 @@
         </div>
     </div>
 
+    <!-- Payment Modal -->
     <div id="payment-modal" class="modal">
         <div class="modal-content">
             <h3>Add Funds</h3>
@@ -122,6 +400,7 @@
         </div>
     </div>
 
+    <!-- Order Modal -->
     <div id="order-modal" class="modal">
         <div class="modal-content">
             <h3>Order Details</h3>
@@ -348,8 +627,65 @@
             } else {
                 container.innerHTML = '<p>No active orders</p>';
             }
+
+            // Show admin panel only if admin
+            if (user.role === 'admin') {
+                document.getElementById('admin-panel').style.display = 'block';
+                await loadAdminData();
+            } else {
+                document.getElementById('admin-panel').style.display = 'none';
+            }
         }
 
+        async function loadAdminData() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            try {
+                const orders = await fetchJSON('/api/admin/orders');
+                const transactions = await fetchJSON('/api/admin/transactions');
+
+                const ordersContainer = document.getElementById('admin-orders-list');
+                if (orders.length) {
+                    ordersContainer.innerHTML = orders.map(o => `
+                        <div style="background:#f8fafc; padding:0.5rem; margin-bottom:0.5rem; border-radius:8px;">
+                            <strong>${o.userEmail}</strong> | ${o.country} | ${o.price} PKR | Status: ${o.status}
+                        </div>
+                    `).join('');
+                } else {
+                    ordersContainer.innerHTML = '<p>No orders yet.</p>';
+                }
+
+                const transactionsContainer = document.getElementById('admin-transactions-list');
+                if (transactions.length) {
+                    transactionsContainer.innerHTML = transactions.map(t => `
+                        <div class="transaction-item">
+                            <strong>${t.userEmail}</strong> | ${t.amount} PKR
+                            <a href="/uploads/${t.screenshot}" target="_blank">View Screenshot</a>
+                            <button class="approve-btn" data-id="${t.id}">Approve</button>
+                        </div>
+                    `).join('');
+                    document.querySelectorAll('.approve-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const txId = btn.dataset.id;
+                            const res = await fetch('/api/admin/transactions/' + txId + '/approve', { method: 'POST' });
+                            if (res.ok) {
+                                showAlert('Payment approved, balance added', 'success');
+                                await loadAdminData();
+                                // refresh user balance if it's the same user
+                                if (currentUser) fetch('/api/me').then(r => r.json()).then(u => document.getElementById('user-balance').innerText = u.balance);
+                            } else {
+                                showAlert('Error', 'error');
+                            }
+                        });
+                    });
+                } else {
+                    transactionsContainer.innerHTML = '<p>No pending transactions.</p>';
+                }
+            } catch (err) {
+                console.error('Admin data error:', err);
+            }
+        }
+
+        // Auth functions
         async function login(email, password) {
             const res = await fetch('/api/login', {
                 method: 'POST',
@@ -384,6 +720,7 @@
             document.getElementById('user-info').style.display = 'none';
             document.getElementById('login-prompt').style.display = 'block';
             document.getElementById('active-orders-list').innerHTML = '';
+            document.getElementById('admin-panel').style.display = 'none';
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
         }
@@ -414,6 +751,7 @@
             document.getElementById('register-form').style.display = 'block';
         }
 
+        // Event listeners
         document.getElementById('login-btn').addEventListener('click', () => {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
