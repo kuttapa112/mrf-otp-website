@@ -1,9 +1,11 @@
-// server.js – MRF OTP Service (improved OTP handling)
+// server.js – MRF OTP Service (SQLite persistent database)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -18,22 +20,153 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// ----- In‑memory database -----
-let users = [
-    { id: 1, email: 'admin@mrfotp.com', password: 'admin123', name: 'Admin', balance: 0, role: 'admin', referralCode: 'ADMIN' },
-    { id: 2, email: 'test@test.com', password: 'test123', name: 'Test User', balance: 0, role: 'user', referralCode: 'TEST' }
-];
-let orders = [];
-let transactions = [];
-let nextUserId = 3;
-let nextOrderId = 1;
-let nextTxId = 1;
+// ----- Database connection -----
+let db;
+async function initDB() {
+    db = await open({
+        filename: './bot_database.db',
+        driver: sqlite3.Database
+    });
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            password TEXT,
+            name TEXT,
+            balance REAL DEFAULT 0,
+            role TEXT DEFAULT 'user',
+            referralCode TEXT,
+            is_active INTEGER DEFAULT 1,
+            login_attempts INTEGER DEFAULT 0,
+            last_login TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            service_type TEXT,
+            service_name TEXT,
+            country TEXT,
+            country_code TEXT,
+            price REAL,
+            payment_method TEXT,
+            payment_status TEXT DEFAULT 'pending',
+            order_status TEXT DEFAULT 'pending',
+            phone_number TEXT,
+            email_address TEXT,
+            email_password TEXT,
+            activation_id TEXT,
+            otp_received INTEGER DEFAULT 0,
+            otp_code TEXT,
+            expires_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            amount REAL,
+            screenshot TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+    // Insert default admin and test user if they don't exist
+    const adminExists = await db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com');
+    if (!adminExists) {
+        await db.run(
+            `INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)`,
+            'admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN'
+        );
+    }
+    const testExists = await db.get('SELECT id FROM users WHERE email = ?', 'test@test.com');
+    if (!testExists) {
+        await db.run(
+            `INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)`,
+            'test@test.com', 'test123', 'Test User', 'user', 'TEST'
+        );
+    }
+}
+initDB().catch(console.error);
 
-// ----- SMSBower configuration -----
+// ----- Helper functions for database operations (using db) -----
+async function findUser(email) {
+    return db.get('SELECT * FROM users WHERE email = ?', email);
+}
+async function findUserById(id) {
+    return db.get('SELECT * FROM users WHERE id = ?', id);
+}
+async function createUser(name, email, password) {
+    const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const result = await db.run(
+        'INSERT INTO users (email, password, name, referralCode) VALUES (?, ?, ?, ?)',
+        email, password, name, referralCode
+    );
+    return result.lastID;
+}
+async function updateUserBalance(userId, newBalance) {
+    await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
+}
+async function addTransaction(userId, amount, screenshot) {
+    await db.run(
+        'INSERT INTO transactions (user_id, amount, screenshot) VALUES (?, ?, ?)',
+        userId, amount, screenshot
+    );
+}
+async function getPendingTransactions() {
+    return db.all('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC');
+}
+async function approveTransaction(txId) {
+    const tx = await db.get('SELECT * FROM transactions WHERE id = ?', txId);
+    if (!tx) return false;
+    await db.run('UPDATE transactions SET status = "approved" WHERE id = ?', txId);
+    const user = await findUserById(tx.user_id);
+    if (user) {
+        await updateUserBalance(tx.user_id, user.balance + tx.amount);
+    }
+    return true;
+}
+async function addOrder(order) {
+    const result = await db.run(`
+        INSERT INTO orders (
+            user_id, service_type, service_name, country, country_code, price,
+            payment_method, order_status, phone_number, activation_id,
+            expires_at, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+        order.user_id, order.service_type, order.service_name,
+        order.country, order.country_code, order.price,
+        order.payment_method, order.order_status, order.phone_number,
+        order.activation_id, order.expires_at, order.created_at
+    ]);
+    return result.lastID;
+}
+async function getOrdersByUser(userId) {
+    return db.all('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', userId);
+}
+async function getOrderById(orderId) {
+    return db.get('SELECT * FROM orders WHERE id = ?', orderId);
+}
+async function updateOrder(orderId, updates) {
+    const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+    const values = Object.values(updates);
+    values.push(orderId);
+    await db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values);
+}
+async function getAllOrders() {
+    return db.all('SELECT * FROM orders ORDER BY id DESC');
+}
+async function updateUserLoginAttempts(userId, attempts) {
+    await db.run('UPDATE users SET login_attempts = ? WHERE id = ?', attempts, userId);
+}
+async function updateUserLastLogin(userId) {
+    await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', userId);
+}
+
+// ----- SMSBower configuration (unchanged) -----
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
-// ----- Country list -----
 const countries = [
     { name: 'South Africa', code: '+27', price: 170, countryId: 31, flag: '🇿🇦' },
     { name: 'Indonesia', code: '+62', price: 200, countryId: 6, flag: '🇮🇩' },
@@ -47,10 +180,6 @@ const countries = [
     { name: 'USA', code: '+1', price: 400, countryId: 187, flag: '🇺🇸' },
     { name: 'United Kingdom', code: '+44', price: 450, countryId: 16, flag: '🇬🇧' }
 ];
-
-// ----- Helper functions -----
-function findUser(email) { return users.find(u => u.email === email); }
-function findUserById(id) { return users.find(u => u.id === id); }
 
 function pkrToUsd(pkr) { return parseFloat((pkr / 280).toFixed(2)); }
 
@@ -94,40 +223,52 @@ async function checkSmsStatus(activationId) {
 }
 
 // ========================
-// ROUTES
+// ROUTES (adapted to use async database functions)
 // ========================
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.get('/api/countries', (req, res) => res.json(countries));
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { name, email, password } = req.body;
-    if (findUser(email)) return res.status(400).send('Email already exists');
-    const newUser = {
-        id: nextUserId++,
-        email,
-        password,
-        name,
-        balance: 0,
-        role: 'user',
-        referralCode: Math.random().toString(36).substring(2, 10).toUpperCase()
-    };
-    users.push(newUser);
-    res.json({ success: true });
-});
-
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-    const user = findUser(email);
-    if (user && user.password === password) {
-        req.session.userId = user.id;
+    try {
+        const existing = await findUser(email);
+        if (existing) return res.status(400).send('Email already exists');
+        await createUser(name, email, password);
         res.json({ success: true });
-    } else res.status(401).send('Invalid credentials');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server error');
+    }
 });
 
-app.get('/api/me', (req, res) => {
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const user = await findUser(email);
+        if (user && user.password === password) {
+            if (user.is_active !== 1) return res.status(401).send('Account blocked');
+            req.session.userId = user.id;
+            await updateUserLastLogin(user.id);
+            await updateUserLoginAttempts(user.id, 0);
+            res.json({ success: true });
+        } else {
+            if (user) {
+                const newAttempts = (user.login_attempts || 0) + 1;
+                await updateUserLoginAttempts(user.id, newAttempts);
+                if (newAttempts >= 5) await db.run('UPDATE users SET is_active = 0 WHERE id = ?', user.id);
+            }
+            res.status(401).send('Invalid credentials');
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server error');
+    }
+});
+
+app.get('/api/me', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Not logged in');
-    const user = findUserById(req.session.userId);
+    const user = await findUserById(req.session.userId);
     if (!user) return res.status(401).send('User not found');
     res.json({ id: user.id, name: user.name, email: user.email, balance: user.balance, role: user.role, referralCode: user.referralCode });
 });
@@ -140,139 +281,136 @@ app.get('/api/logout', (req, res) => {
 app.post('/api/order', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const { countryName, price, countryId } = req.body;
-    const user = findUserById(req.session.userId);
+    const user = await findUserById(req.session.userId);
     if (user.balance < price) return res.status(400).send('Insufficient balance. Please add funds.');
     const baseUsdPrice = pkrToUsd(price);
     const result = await buyNumberWithRetry(countryId, baseUsdPrice, 3);
     if (!result.success) return res.status(500).send('No number available. Please try again later.');
-    user.balance -= price;
-    const newOrder = {
-        id: nextOrderId++,
-        userId: user.id,
-        userEmail: user.email,
+    await updateUserBalance(user.id, user.balance - price);
+    const expiresAt = new Date(Date.now() + 25 * 60 * 1000).toISOString();
+    const orderId = await addOrder({
+        user_id: user.id,
+        service_type: 'whatsapp',
+        service_name: 'WhatsApp Number',
         country: countryName,
+        country_code: countries.find(c => c.name === countryName).code,
         price,
-        number: result.phoneNumber,
-        activationId: result.activationId,
-        smsCode: null,
-        status: 'active',
-        createdAt: new Date().toISOString()
-    };
-    orders.push(newOrder);
-    res.json({ id: newOrder.id, number: result.phoneNumber });
+        payment_method: 'balance',
+        order_status: 'active',
+        phone_number: result.phoneNumber,
+        activation_id: result.activationId,
+        expires_at: expiresAt,
+        created_at: new Date().toISOString()
+    });
+    res.json({ id: orderId, number: result.phoneNumber });
 });
 
-app.get('/api/orders/:orderId', (req, res) => {
+app.get('/api/orders/:orderId', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    const order = await getOrderById(parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') return res.status(403).send('Unauthorized');
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
     res.json(order);
 });
 
-app.get('/api/orders', (req, res) => {
+app.get('/api/orders', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const userOrders = orders.filter(o => o.userId === req.session.userId);
+    const userOrders = await getOrdersByUser(req.session.userId);
     res.json(userOrders);
 });
 
 app.post('/api/orders/:orderId/replace', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    const order = await getOrderById(parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId) return res.status(403).send('Unauthorized');
-    if (order.status !== 'active') return res.status(400).send('Cannot replace number now');
-    if (order.smsCode) return res.status(400).send('OTP already received, cannot replace');
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id) return res.status(403).send('Unauthorized');
+    if (order.order_status !== 'active') return res.status(400).send('Cannot replace number now');
+    if (order.otp_received) return res.status(400).send('OTP already received, cannot replace');
     try {
-        const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activationId}&status=8`;
+        const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
         await axios.get(cancelUrl);
     } catch (err) { console.error('Cancel old activation error:', err.message); }
     const baseUsdPrice = pkrToUsd(order.price);
-    const result = await buyNumberWithRetry(order.countryId, baseUsdPrice, 3);
+    const result = await buyNumberWithRetry(order.country_id, baseUsdPrice, 3);
     if (!result.success) return res.status(500).send('No number available for replacement');
-    order.number = result.phoneNumber;
-    order.activationId = result.activationId;
-    order.smsCode = null;
-    order.status = 'active';
-    order.createdAt = new Date().toISOString();
+    await updateOrder(order.id, {
+        phone_number: result.phoneNumber,
+        activation_id: result.activationId,
+        otp_received: 0,
+        otp_code: null,
+        order_status: 'active',
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 25 * 60 * 1000).toISOString()
+    });
     res.send('OK');
 });
 
-app.post('/api/orders/:orderId/cancel', (req, res) => {
+app.post('/api/orders/:orderId/cancel', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    const order = await getOrderById(parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId) return res.status(403).send('Unauthorized');
-    if (order.status !== 'active') return res.status(400).send('Cannot cancel now');
-    if (order.smsCode) return res.status(400).send('OTP already received, cannot cancel');
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id) return res.status(403).send('Unauthorized');
+    if (order.order_status !== 'active') return res.status(400).send('Cannot cancel now');
+    if (order.otp_received) return res.status(400).send('OTP already received, cannot cancel');
     try {
-        const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activationId}&status=8`;
-        axios.get(cancelUrl);
+        const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
+        await axios.get(cancelUrl);
     } catch (err) { console.error('Cancel activation error:', err.message); }
-    const user = findUserById(order.userId);
-    user.balance += order.price;
-    order.status = 'cancelled';
+    await updateUserBalance(user.id, user.balance + order.price);
+    await updateOrder(order.id, { order_status: 'cancelled' });
     res.send('OK');
 });
 
-app.post('/api/orders/:orderId/complete', (req, res) => {
+app.post('/api/orders/:orderId/complete', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    const order = await getOrderById(parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId) return res.status(403).send('Unauthorized');
-    if (order.smsCode) {
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id) return res.status(403).send('Unauthorized');
+    if (order.otp_received) {
         try {
-            const completeUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activationId}&status=6`;
-            axios.get(completeUrl);
+            const completeUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=6`;
+            await axios.get(completeUrl);
         } catch (err) { console.error('Complete error:', err.message); }
-        order.status = 'completed';
+        await updateOrder(order.id, { order_status: 'completed', completed_at: new Date().toISOString() });
         res.send('OK');
-    } else res.status(400).send('Cannot complete without OTP');
+    } else {
+        res.status(400).send('Cannot complete without OTP');
+    }
 });
 
-app.post('/api/orders/:orderId/expire', (req, res) => {
+app.post('/api/orders/:orderId/expire', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    const order = await getOrderById(parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') return res.status(403).send('Unauthorized');
-    if (order.status === 'active' && !order.smsCode) {
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
+    if (order.order_status === 'active' && !order.otp_received) {
         try {
-            const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activationId}&status=8`;
-            axios.get(cancelUrl);
+            const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
+            await axios.get(cancelUrl);
         } catch (err) { console.error('Expire cancel error:', err.message); }
-        order.status = 'cancelled';
+        await updateOrder(order.id, { order_status: 'cancelled' });
     }
     res.send('OK');
 });
 
-// ========================
-// IMPROVED OTP CHECK ROUTE
-// ========================
 app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    const order = await getOrderById(parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') {
-        return res.status(403).send('Unauthorized');
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
+    if (order.otp_received) {
+        return res.json({ received: true, code: order.otp_code });
     }
-
-    // If we already have the code, return it immediately
-    if (order.smsCode) {
-        return res.json({ received: true, code: order.smsCode });
-    }
-
-    // No activation ID means number not yet assigned
-    if (!order.activationId) {
-        return res.json({ received: false });
-    }
-
-    // Check status from SMSBower
-    const smsResult = await checkSmsStatus(order.activationId);
+    if (!order.activation_id) return res.json({ received: false });
+    const smsResult = await checkSmsStatus(order.activation_id);
     if (smsResult.success && smsResult.code) {
-        // OTP received – update order
-        order.smsCode = smsResult.code;
-        order.status = 'completed';
-        console.log(`✅ OTP received for order ${order.id}: ${smsResult.code}`);
+        await updateOrder(order.id, { otp_received: 1, otp_code: smsResult.code, order_status: 'completed' });
         return res.json({ received: true, code: smsResult.code });
     } else if (smsResult.success && smsResult.waiting) {
         return res.json({ received: false, waiting: true });
@@ -281,55 +419,40 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     }
 });
 
-// Debug route – to check activation ID (remove later if you want)
-app.get('/api/debug/order/:orderId', (req, res) => {
+// Admin routes (require role admin)
+app.get('/api/admin/orders', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const order = orders.find(o => o.id === parseInt(req.params.orderId));
-    if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') {
-        return res.status(403).send('Unauthorized');
-    }
-    res.json({ activationId: order.activationId, number: order.number, status: order.status, smsCode: order.smsCode });
-});
-
-// Admin routes
-function isAdmin(req, res, next) {
-    if (!req.session.userId) return res.status(401).send('Login required');
-    const user = findUserById(req.session.userId);
+    const user = await findUserById(req.session.userId);
     if (user.role !== 'admin') return res.status(403).send('Admin only');
-    next();
-}
-
-app.get('/api/admin/orders', isAdmin, (req, res) => res.json(orders));
-app.get('/api/admin/transactions', isAdmin, (req, res) => {
-    const pendingTxs = transactions.filter(t => t.status === 'pending');
-    res.json(pendingTxs);
-});
-app.post('/api/admin/transactions/:txId/approve', isAdmin, (req, res) => {
-    const tx = transactions.find(t => t.id === parseInt(req.params.txId));
-    if (!tx) return res.status(404).send('Transaction not found');
-    tx.status = 'approved';
-    const user = findUserById(tx.userId);
-    user.balance += tx.amount;
-    res.send('OK');
+    const allOrders = await getAllOrders();
+    res.json(allOrders);
 });
 
-app.post('/api/add-funds', upload.single('screenshot'), (req, res) => {
+app.get('/api/admin/transactions', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const user = await findUserById(req.session.userId);
+    if (user.role !== 'admin') return res.status(403).send('Admin only');
+    const pending = await getPendingTransactions();
+    res.json(pending);
+});
+
+app.post('/api/admin/transactions/:txId/approve', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const user = await findUserById(req.session.userId);
+    if (user.role !== 'admin') return res.status(403).send('Admin only');
+    const txId = parseInt(req.params.txId);
+    const success = await approveTransaction(txId);
+    if (success) res.send('OK');
+    else res.status(404).send('Transaction not found');
+});
+
+app.post('/api/add-funds', upload.single('screenshot'), async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const amount = parseFloat(req.body.amount);
     if (amount < 150) return res.status(400).send('Minimum amount 150 PKR');
     const screenshot = req.file ? req.file.filename : null;
     if (!screenshot) return res.status(400).send('Screenshot required');
-    const transaction = {
-        id: nextTxId++,
-        userId: req.session.userId,
-        userEmail: findUserById(req.session.userId).email,
-        amount,
-        screenshot,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-    };
-    transactions.push(transaction);
+    await addTransaction(req.session.userId, amount, screenshot);
     res.send('OK');
 });
 
