@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (backend only)
+// server.js – MRF OTP Service (improved OTP handling)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -84,6 +84,7 @@ async function checkSmsStatus(activationId) {
         const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
         const response = await axios.get(url);
         const resText = response.data;
+        console.log(`SMS check for ${activationId}: ${resText}`);
         if (resText.startsWith('STATUS_OK:')) {
             const code = resText.split(':')[1];
             return { success: true, code };
@@ -244,22 +245,54 @@ app.post('/api/orders/:orderId/expire', (req, res) => {
     res.send('OK');
 });
 
+// ========================
+// IMPROVED OTP CHECK ROUTE
+// ========================
 app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = orders.find(o => o.id === parseInt(req.params.orderId));
     if (!order) return res.status(404).send('Order not found');
-    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') return res.status(403).send('Unauthorized');
-    if (order.smsCode) return res.json({ received: true, code: order.smsCode });
-    if (!order.activationId) return res.json({ received: false });
+    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') {
+        return res.status(403).send('Unauthorized');
+    }
+
+    // If we already have the code, return it immediately
+    if (order.smsCode) {
+        return res.json({ received: true, code: order.smsCode });
+    }
+
+    // No activation ID means number not yet assigned
+    if (!order.activationId) {
+        return res.json({ received: false });
+    }
+
+    // Check status from SMSBower
     const smsResult = await checkSmsStatus(order.activationId);
     if (smsResult.success && smsResult.code) {
+        // OTP received – update order
         order.smsCode = smsResult.code;
         order.status = 'completed';
+        console.log(`✅ OTP received for order ${order.id}: ${smsResult.code}`);
         return res.json({ received: true, code: smsResult.code });
+    } else if (smsResult.success && smsResult.waiting) {
+        return res.json({ received: false, waiting: true });
+    } else {
+        return res.json({ received: false, error: true });
     }
-    res.json({ received: false });
 });
 
+// Debug route – to check activation ID (remove later if you want)
+app.get('/api/debug/order/:orderId', (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const order = orders.find(o => o.id === parseInt(req.params.orderId));
+    if (!order) return res.status(404).send('Order not found');
+    if (order.userId !== req.session.userId && findUserById(req.session.userId).role !== 'admin') {
+        return res.status(403).send('Unauthorized');
+    }
+    res.json({ activationId: order.activationId, number: order.number, status: order.status, smsCode: order.smsCode });
+});
+
+// Admin routes
 function isAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).send('Login required');
     const user = findUserById(req.session.userId);
