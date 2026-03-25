@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (SQLite persistent database)
+// server.js – MRF OTP Service (SQLite, reliable OTP)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -208,6 +208,7 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
     return { success: false, error: 'No number available after all attempts' };
 }
 
+// Improved OTP check with better logging
 async function checkSmsStatus(activationId) {
     try {
         const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
@@ -219,7 +220,10 @@ async function checkSmsStatus(activationId) {
             return { success: true, code };
         } else if (resText === 'STATUS_WAIT_CODE') return { success: true, waiting: true };
         return { success: false };
-    } catch { return { success: false }; }
+    } catch (err) {
+        console.error(`SMS check error: ${err.message}`);
+        return { success: false };
+    }
 }
 
 // ========================
@@ -399,6 +403,7 @@ app.post('/api/orders/:orderId/expire', async (req, res) => {
     res.send('OK');
 });
 
+// Critical OTP endpoint – improved with detailed logging
 app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = await getOrderById(parseInt(req.params.orderId));
@@ -408,7 +413,9 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (order.otp_received) {
         return res.json({ received: true, code: order.otp_code });
     }
-    if (!order.activation_id) return res.json({ received: false });
+    if (!order.activation_id) {
+        return res.json({ received: false, error: 'No activation ID' });
+    }
     const smsResult = await checkSmsStatus(order.activation_id);
     if (smsResult.success && smsResult.code) {
         await updateOrder(order.id, { otp_received: 1, otp_code: smsResult.code, order_status: 'completed' });
@@ -418,6 +425,24 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     } else {
         return res.json({ received: false, error: true });
     }
+});
+
+// Debug endpoint to see activation ID and SMSBower raw response
+app.get('/api/debug/order/:orderId', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const order = await getOrderById(parseInt(req.params.orderId));
+    if (!order) return res.status(404).send('Order not found');
+    const user = await findUserById(req.session.userId);
+    if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
+    let rawSmsResponse = null;
+    if (order.activation_id) {
+        try {
+            const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${order.activation_id}`;
+            const response = await axios.get(url);
+            rawSmsResponse = response.data;
+        } catch (err) {}
+    }
+    res.json({ activationId: order.activation_id, rawSmsResponse, order });
 });
 
 // Admin routes
