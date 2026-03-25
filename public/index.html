@@ -694,7 +694,6 @@
             }
         }
 
-        // Manual OTP check
         async function manualOtpCheck(orderId) {
             try {
                 const result = await fetchJSON('/api/orders/' + orderId + '/otp');
@@ -710,7 +709,6 @@
             }
         }
 
-        // Auth functions
         async function login(email, password) {
             const res = await fetch('/api/login', {
                 method: 'POST',
@@ -811,6 +809,11 @@
         document.getElementById('google-signin').addEventListener('click', () => {
             showRegisterForm();
         });
+        document.getElementById('check-otp-manual').addEventListener('click', async () => {
+            if (activeOrder) {
+                await manualOtpCheck(activeOrder.id);
+            }
+        });
 
         document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -826,13 +829,6 @@
             }
         });
 
-        // Manual OTP check button
-        document.getElementById('check-otp-manual').addEventListener('click', async () => {
-            if (activeOrder) {
-                await manualOtpCheck(activeOrder.id);
-            }
-        });
-
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -845,5 +841,19 @@
         loadCountries();
         checkAuth();
     </script>
+
+    <!-- Tawk.to Live Chat Widget -->
+    <script type="text/javascript">
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    (function(){
+    var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+    s1.async=true;
+    s1.src='https://embed.tawk.to/69c3a5ccacf0f81c37903f0d/1jki3vag6';
+    s1.charset='UTF-8';
+    s1.setAttribute('crossorigin','*');
+    s0.parentNode.insertBefore(s1,s0);
+    })();
+    </script>
+    <!-- End of Tawk.to Script -->
 </body>
 </html>
