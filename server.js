@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (SQLite, reliable OTP)
+// server.js – MRF OTP Service (SQLite, 10s retry, admin notifications)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -183,6 +183,7 @@ const countries = [
 
 function pkrToUsd(pkr) { return parseFloat((pkr / 280).toFixed(2)); }
 
+// Modified retry with 10-second wait between tiers
 async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
     const priceSteps = [];
     for (let i = 0; i < maxAttempts; i++) priceSteps.push((baseUsdPrice * (1 + i * 0.05)).toFixed(2));
@@ -198,17 +199,16 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
                 const parts = resText.split(':');
                 if (parts.length >= 3) return { success: true, activationId: parts[1], phoneNumber: `+${parts[2]}` };
             }
-            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 15000));
+            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 10000)); // 10 seconds
         } catch (err) {
             console.error(`Attempt ${attempt} error:`, err.message);
             if (attempt === maxAttempts) return { success: false, error: err.message };
-            await new Promise(r => setTimeout(r, 15000));
+            await new Promise(r => setTimeout(r, 10000));
         }
     }
     return { success: false, error: 'No number available after all attempts' };
 }
 
-// Improved OTP check with better logging
 async function checkSmsStatus(activationId) {
     try {
         const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
@@ -403,7 +403,6 @@ app.post('/api/orders/:orderId/expire', async (req, res) => {
     res.send('OK');
 });
 
-// Critical OTP endpoint – improved with detailed logging
 app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = await getOrderById(parseInt(req.params.orderId));
@@ -413,9 +412,7 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (order.otp_received) {
         return res.json({ received: true, code: order.otp_code });
     }
-    if (!order.activation_id) {
-        return res.json({ received: false, error: 'No activation ID' });
-    }
+    if (!order.activation_id) return res.json({ received: false });
     const smsResult = await checkSmsStatus(order.activation_id);
     if (smsResult.success && smsResult.code) {
         await updateOrder(order.id, { otp_received: 1, otp_code: smsResult.code, order_status: 'completed' });
@@ -427,7 +424,6 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     }
 });
 
-// Debug endpoint to see activation ID and SMSBower raw response
 app.get('/api/debug/order/:orderId', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const order = await getOrderById(parseInt(req.params.orderId));
