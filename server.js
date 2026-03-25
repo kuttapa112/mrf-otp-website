@@ -44,6 +44,7 @@ async function initDB() {
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
+            user_email TEXT,
             service_type TEXT,
             service_name TEXT,
             country TEXT,
@@ -53,8 +54,6 @@ async function initDB() {
             payment_status TEXT DEFAULT 'pending',
             order_status TEXT DEFAULT 'pending',
             phone_number TEXT,
-            email_address TEXT,
-            email_password TEXT,
             activation_id TEXT,
             otp_received INTEGER DEFAULT 0,
             otp_code TEXT,
@@ -65,6 +64,7 @@ async function initDB() {
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
+            user_email TEXT,
             amount REAL,
             screenshot TEXT,
             status TEXT DEFAULT 'pending',
@@ -89,7 +89,7 @@ async function initDB() {
 }
 initDB().catch(console.error);
 
-// ----- Helper functions for database operations (using db) -----
+// ----- Helper functions for database operations -----
 async function findUser(email) {
     return db.get('SELECT * FROM users WHERE email = ?', email);
 }
@@ -107,10 +107,10 @@ async function createUser(name, email, password) {
 async function updateUserBalance(userId, newBalance) {
     await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
 }
-async function addTransaction(userId, amount, screenshot) {
+async function addTransaction(userId, userEmail, amount, screenshot) {
     await db.run(
-        'INSERT INTO transactions (user_id, amount, screenshot) VALUES (?, ?, ?)',
-        userId, amount, screenshot
+        'INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)',
+        userId, userEmail, amount, screenshot
     );
 }
 async function getPendingTransactions() {
@@ -129,12 +129,12 @@ async function approveTransaction(txId) {
 async function addOrder(order) {
     const result = await db.run(`
         INSERT INTO orders (
-            user_id, service_type, service_name, country, country_code, price,
+            user_id, user_email, service_type, service_name, country, country_code, price,
             payment_method, order_status, phone_number, activation_id,
             expires_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-        order.user_id, order.service_type, order.service_name,
+        order.user_id, order.user_email, order.service_type, order.service_name,
         order.country, order.country_code, order.price,
         order.payment_method, order.order_status, order.phone_number,
         order.activation_id, order.expires_at, order.created_at
@@ -163,7 +163,7 @@ async function updateUserLastLogin(userId) {
     await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', userId);
 }
 
-// ----- SMSBower configuration (unchanged) -----
+// ----- SMSBower configuration -----
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
@@ -223,7 +223,7 @@ async function checkSmsStatus(activationId) {
 }
 
 // ========================
-// ROUTES (adapted to use async database functions)
+// ROUTES
 // ========================
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -290,6 +290,7 @@ app.post('/api/order', async (req, res) => {
     const expiresAt = new Date(Date.now() + 25 * 60 * 1000).toISOString();
     const orderId = await addOrder({
         user_id: user.id,
+        user_email: user.email,
         service_type: 'whatsapp',
         service_name: 'WhatsApp Number',
         country: countryName,
@@ -419,7 +420,7 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     }
 });
 
-// Admin routes (require role admin)
+// Admin routes
 app.get('/api/admin/orders', async (req, res) => {
     if (!req.session.userId) return res.status(401).send('Login required');
     const user = await findUserById(req.session.userId);
@@ -452,7 +453,8 @@ app.post('/api/add-funds', upload.single('screenshot'), async (req, res) => {
     if (amount < 150) return res.status(400).send('Minimum amount 150 PKR');
     const screenshot = req.file ? req.file.filename : null;
     if (!screenshot) return res.status(400).send('Screenshot required');
-    await addTransaction(req.session.userId, amount, screenshot);
+    const user = await findUserById(req.session.userId);
+    await addTransaction(req.session.userId, user.email, amount, screenshot);
     res.send('OK');
 });
 
