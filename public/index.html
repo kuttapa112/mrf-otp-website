@@ -5,59 +5,332 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>MRF Portal – OTP Service</title>
     <style>
-        /* keep all existing styles – same as before */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1e293b; }
+
+        /* Light theme (default) */
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #1e293b;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --sidebar-bg: #ffffff;
+            --hover-bg: #f1f5f9;
+            --btn-primary: #22c55e;
+            --btn-primary-hover: #16a34a;
+            --btn-danger: #ef4444;
+            --btn-warning: #fbbf24;
+        }
+
+        body.dark {
+            --bg-color: #0f172a;
+            --text-color: #e2e8f0;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --sidebar-bg: #1e293b;
+            --hover-bg: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+        }
+
         .dashboard { display: flex; min-height: 100vh; }
-        .sidebar { width: 260px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; padding: 2rem 1rem; }
-        .sidebar-header { font-size: 1.5rem; font-weight: bold; color: #22c55e; margin-bottom: 2rem; padding-left: 1rem; }
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            padding: 2rem 1rem;
+        }
+        .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 2rem;
+            padding-left: 1rem;
+        }
         .sidebar-nav { flex: 1; }
-        .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; margin: 0.25rem 0; border-radius: 12px; cursor: pointer; transition: background 0.2s; font-weight: 500; }
-        .nav-item:hover { background: #f1f5f9; }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 500;
+        }
+        .nav-item:hover { background: var(--hover-bg); }
         .nav-item.active { background: #22c55e; color: white; }
         .nav-icon { width: 24px; text-align: center; font-size: 1.2rem; }
-        .main { flex: 1; padding: 2rem; overflow-y: auto; }
-        .section-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
-        .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
-        .country-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; }
-        .country-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+
+        .main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .country-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .country-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .country-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
         .country-flag { font-size: 2rem; margin-bottom: 0.5rem; }
         .country-name { font-weight: 600; font-size: 1.1rem; }
         .country-code { color: #64748b; font-size: 0.9rem; margin: 0.25rem 0 1rem; }
-        .country-price { font-size: 1.5rem; font-weight: bold; color: #22c55e; margin: 1rem 0; }
-        .buy-btn { background: #22c55e; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .country-price {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #22c55e;
+            margin: 1rem 0;
+        }
+        .buy-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
         .buy-btn:hover { background: #16a34a; }
-        .right-panel { width: 320px; background: white; border-left: 1px solid #e2e8f0; padding: 2rem 1rem; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-        .balance-card { background: #f8fafc; border-radius: 20px; padding: 1.5rem; text-align: center; margin-bottom: 2rem; border: 1px solid #e2e8f0; }
+
+        .right-panel {
+            width: 320px;
+            background: var(--card-bg);
+            border-left: 1px solid var(--border-color);
+            padding: 2rem 1rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .balance-card {
+            background: var(--bg-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+        }
         .balance-label { font-size: 0.9rem; color: #64748b; }
-        .balance-amount { font-size: 2.5rem; font-weight: bold; color: #22c55e; }
-        .add-money-btn { background: #22c55e; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 40px; font-weight: 600; margin-top: 1rem; cursor: pointer; }
+        .balance-amount {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #22c55e;
+        }
+        .add-money-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
         .active-orders { margin-top: 1.5rem; }
-        .order-item { background: #f8fafc; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px solid #e2e8f0; }
+        .order-item {
+            background: var(--bg-color);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
         .order-country { font-weight: 600; }
         .order-status { font-size: 0.8rem; color: #fbbf24; }
-        .view-order-btn { background: none; border: none; color: #22c55e; cursor: pointer; margin-top: 0.5rem; font-size: 0.8rem; }
-        .logout-btn { background: #ef4444; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 40px; font-weight: 600; margin-top: 1rem; cursor: pointer; }
-        .admin-panel { margin-top: 2rem; background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; }
+        .view-order-btn {
+            background: none;
+            border: none;
+            color: #22c55e;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+
+        .admin-panel {
+            margin-top: 2rem;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
         .admin-panel h3 { margin-bottom: 1rem; }
-        .transaction-item { background: #f8fafc; padding: 1rem; margin-bottom: 1rem; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .approve-btn { background: #22c55e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 40px; cursor: pointer; margin-left: 1rem; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; border-radius: 24px; padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
-        .payment-info { background: #f8fafc; padding: 1rem; border-radius: 16px; margin: 1rem 0; }
-        .button-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
-        .button-group button { flex: 1; padding: 0.75rem; border: none; border-radius: 40px; font-weight: 600; cursor: pointer; }
+        .transaction-item {
+            background: var(--bg-color);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .approve-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-left: 1rem;
+        }
+        .badge {
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+            margin-left: 8px;
+            display: inline-block;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .payment-info {
+            background: var(--bg-color);
+            padding: 1rem;
+            border-radius: 16px;
+            margin: 1rem 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .button-group button {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+        }
         .replace-btn { background: #fbbf24; color: black; }
         .cancel-btn { background: #ef4444; color: white; }
         .complete-btn { background: #22c55e; color: white; }
-        .check-otp-btn { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 40px; cursor: pointer; margin-top: 1rem; }
-        .auth-container { max-width: 400px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .auth-container input { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border: 1px solid #e2e8f0; border-radius: 12px; }
-        .google-btn { background: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
-        .spinner { border: 4px solid rgba(0,0,0,0.1); border-radius: 50%; border-top: 4px solid #22c55e; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        .check-otp-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+
+        .auth-container {
+            max-width: 400px;
+            margin: 2rem auto;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .auth-container input {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-color);
+        }
+        .google-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .spinner {
+            border: 4px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 4px solid #22c55e;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Theme toggle button */
+        .theme-toggle {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 40px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            z-index: 100;
+            font-size: 1rem;
+        }
+
         @media (max-width: 1024px) { .right-panel { width: 280px; } }
-        @media (max-width: 768px) { .dashboard { flex-direction: column; } .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; } .right-panel { width: 100%; height: auto; position: static; } }
+        @media (max-width: 768px) {
+            .dashboard { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; }
+            .right-panel { width: 100%; height: auto; position: static; }
+            .theme-toggle { bottom: 0.5rem; right: 0.5rem; }
+        }
     </style>
 </head>
 <body>
@@ -69,6 +342,11 @@
                     <span class="nav-icon">📱</span>
                     <span>WhatsApp</span>
                 </div>
+                <!-- Contact button that opens Tawk.to -->
+                <div class="nav-item" id="contact-btn" style="margin-top: auto;">
+                    <span class="nav-icon">💬</span>
+                    <span>Contact</span>
+                </div>
             </div>
         </div>
 
@@ -76,7 +354,7 @@
             <div class="section-title">Available WhatsApp Numbers</div>
             <div class="country-grid" id="country-list"></div>
             <div id="admin-panel" class="admin-panel" style="display: none;">
-                <h3>Admin Panel</h3>
+                <h3>Admin Panel <span id="payment-badge" class="badge" style="display:none;">!</span></h3>
                 <div id="admin-orders-section"><h4>All Orders</h4><div id="admin-orders-list"></div></div>
                 <div id="admin-transactions-section"><h4>Pending Transactions</h4><div id="admin-transactions-list"></div></div>
             </div>
@@ -116,7 +394,7 @@
         </div>
     </div>
 
-    <!-- Processing modal (shown while waiting for number) -->
+    <!-- Processing modal -->
     <div id="processing-modal" class="modal">
         <div class="modal-content" style="text-align:center;">
             <h3>Processing Order</h3>
@@ -137,7 +415,7 @@
                 <p>Account Name: <strong>Nihayat</strong></p>
             </div>
             <form id="addFundsForm" enctype="multipart/form-data">
-                <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:12px;">
+                <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:12px;">
                 <input type="file" name="screenshot" accept="image/*" required style="margin-top:1rem;">
                 <button type="submit" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
             </form>
@@ -157,6 +435,9 @@
             <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
     </div>
+
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="theme-toggle">🌓 Light/Dark</div>
 
     <!-- Tawk.to Live Chat Script -->
     <script type="text/javascript">
@@ -178,6 +459,9 @@
         let activeOrder = null;
         let otpInterval = null;
         let timerInterval = null;
+        let adminRefreshInterval = null;
+        let lastPendingCount = 0;
+        let notificationSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
 
         function showAlert(msg, type) {
             const alertDiv = document.createElement('div');
@@ -283,8 +567,7 @@
                                 document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
                                 updateOrderButtons(updated);
                                 showAlert('OTP received!', 'success');
-                                const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
-                                audio.play().catch(e => console.log('Audio play failed'));
+                                notificationSound.play().catch(e => console.log('Audio play failed'));
                             }
                         } catch (err) {}
                     }, 3000); // every 3 seconds
@@ -398,8 +681,20 @@
             if (user.role === 'admin') {
                 document.getElementById('admin-panel').style.display = 'block';
                 await loadAdminData();
+                // Start admin refresh if not already running
+                if (!adminRefreshInterval) {
+                    adminRefreshInterval = setInterval(async () => {
+                        if (currentUser && currentUser.role === 'admin') {
+                            await loadAdminData();
+                        }
+                    }, 10000);
+                }
             } else {
                 document.getElementById('admin-panel').style.display = 'none';
+                if (adminRefreshInterval) {
+                    clearInterval(adminRefreshInterval);
+                    adminRefreshInterval = null;
+                }
             }
         }
 
@@ -412,7 +707,7 @@
                 const ordersContainer = document.getElementById('admin-orders-list');
                 if (orders.length) {
                     ordersContainer.innerHTML = orders.map(o => `
-                        <div style="background:#f8fafc; padding:0.5rem; margin-bottom:0.5rem; border-radius:8px;">
+                        <div style="background:var(--bg-color); padding:0.5rem; margin-bottom:0.5rem; border-radius:8px;">
                             <strong>${o.user_email}</strong> | ${o.country} | ${o.price} PKR | Status: ${o.order_status}
                         </div>
                     `).join('');
@@ -421,6 +716,21 @@
                 }
 
                 const transactionsContainer = document.getElementById('admin-transactions-list');
+                const pendingCount = transactions.length;
+                const badge = document.getElementById('payment-badge');
+                if (pendingCount > 0) {
+                    badge.style.display = 'inline-block';
+                    badge.textContent = pendingCount;
+                    if (pendingCount > lastPendingCount) {
+                        // New transaction detected – play sound
+                        notificationSound.play().catch(e => console.log('Audio play failed'));
+                        showAlert(`New payment received! ${pendingCount} pending.`, 'success');
+                    }
+                } else {
+                    badge.style.display = 'none';
+                }
+                lastPendingCount = pendingCount;
+
                 if (transactions.length) {
                     transactionsContainer.innerHTML = transactions.map(t => `
                         <div class="transaction-item">
@@ -485,6 +795,8 @@
             document.getElementById('admin-panel').style.display = 'none';
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
+            if (adminRefreshInterval) clearInterval(adminRefreshInterval);
+            adminRefreshInterval = null;
         }
         async function checkAuth() {
             try {
@@ -521,14 +833,29 @@
             else { const err = await res.text(); showAlert(err, 'error'); }
         });
         document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
+        // Contact button opens Tawk.to chat
+        document.getElementById('contact-btn').addEventListener('click', () => {
+            if (window.Tawk_API) window.Tawk_API.toggle();
+            else showAlert('Chat is loading...', 'info');
+        });
+
+        // Theme toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        });
+        if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
 
         document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                item.classList.add('active');
-                loadCountries();
-                document.querySelector('.section-title').innerText = `Available ${item.querySelector('span:last-child').innerText} Numbers`;
-            });
+            if (item.id !== 'contact-btn') {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    loadCountries();
+                    document.querySelector('.section-title').innerText = `Available ${item.querySelector('span:last-child').innerText} Numbers`;
+                });
+            }
         });
 
         loadCountries();
