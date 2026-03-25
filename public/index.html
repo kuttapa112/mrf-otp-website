@@ -275,6 +275,15 @@
         .replace-btn { background: #fbbf24; color: black; }
         .cancel-btn { background: #ef4444; color: white; }
         .complete-btn { background: #22c55e; color: white; }
+        .check-otp-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
 
         .auth-container {
             max-width: 400px;
@@ -408,6 +417,7 @@
             <div id="order-timer" style="margin:1rem 0;"></div>
             <div id="order-otp"></div>
             <div id="order-buttons" class="button-group"></div>
+            <button id="check-otp-manual" class="check-otp-btn">Check OTP Manually</button>
             <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
     </div>
@@ -670,7 +680,6 @@
                             if (res.ok) {
                                 showAlert('Payment approved, balance added', 'success');
                                 await loadAdminData();
-                                // refresh user balance if it's the same user
                                 if (currentUser) fetch('/api/me').then(r => r.json()).then(u => document.getElementById('user-balance').innerText = u.balance);
                             } else {
                                 showAlert('Error', 'error');
@@ -682,6 +691,22 @@
                 }
             } catch (err) {
                 console.error('Admin data error:', err);
+            }
+        }
+
+        // Manual OTP check
+        async function manualOtpCheck(orderId) {
+            try {
+                const result = await fetchJSON('/api/orders/' + orderId + '/otp');
+                if (result.received) {
+                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${result.code}</div>`;
+                    updateOrderButtons({ ...activeOrder, smsCode: result.code });
+                    showAlert('OTP received!', 'success');
+                } else {
+                    showAlert('No OTP yet. Still waiting.', 'error');
+                }
+            } catch (err) {
+                showAlert('Error checking OTP', 'error');
             }
         }
 
@@ -798,6 +823,13 @@
             } else {
                 const err = await res.text();
                 showAlert(err, 'error');
+            }
+        });
+
+        // Manual OTP check button
+        document.getElementById('check-otp-manual').addEventListener('click', async () => {
+            if (activeOrder) {
+                await manualOtpCheck(activeOrder.id);
             }
         });
 
