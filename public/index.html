@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>MRF Portal – OTP Service</title>
     <style>
+        /* keep all existing styles – same as before */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1e293b; }
         .dashboard { display: flex; min-height: 100vh; }
@@ -152,10 +153,25 @@
             <div id="order-timer" style="margin:1rem 0;"></div>
             <div id="order-otp"></div>
             <div id="order-buttons" class="button-group"></div>
-            <button id="check-otp-manual" class="check-otp-btn">Check OTP Manually</button>
+            <button id="check-otp-manual" class="check-otp-btn">Check OTP Now</button>
             <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
     </div>
+
+    <!-- Tawk.to Live Chat Script -->
+    <script type="text/javascript">
+        var Tawk_API = Tawk_API || {};
+        var Tawk_LoadStart = new Date();
+        (function(){
+            var s1 = document.createElement("script");
+            s1.async = true;
+            s1.src = 'https://embed.tawk.to/69c3a5ccacf0f81c37903f0d/1jki3vag6';
+            s1.charset = 'UTF-8';
+            s1.setAttribute('crossorigin','*');
+            var s0 = document.getElementsByTagName("script")[0];
+            s0.parentNode.insertBefore(s1,s0);
+        })();
+    </script>
 
     <script>
         let currentUser = null;
@@ -218,7 +234,6 @@
                 showAlert('Please login first', 'error');
                 return;
             }
-            // Show processing modal
             const processingModal = document.getElementById('processing-modal');
             processingModal.style.display = 'flex';
             try {
@@ -268,12 +283,11 @@
                                 document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
                                 updateOrderButtons(updated);
                                 showAlert('OTP received!', 'success');
-                                // play sound
                                 const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
                                 audio.play().catch(e => console.log('Audio play failed'));
                             }
                         } catch (err) {}
-                    }, 5000);
+                    }, 3000); // every 3 seconds
                 }
                 if (timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(async () => {
@@ -451,7 +465,7 @@
             }
         }
 
-        // Auth functions (unchanged)
+        // Auth functions
         async function login(email, password) {
             const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
             if (res.ok) { await checkAuth(); showAlert('Logged in', 'success'); }
