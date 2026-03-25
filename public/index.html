@@ -5,324 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>MRF Portal – OTP Service</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f0f2f5;
-            color: #1e293b;
-        }
-
-        .dashboard {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 260px;
-            background: white;
-            border-right: 1px solid #e2e8f0;
-            display: flex;
-            flex-direction: column;
-            position: sticky;
-            top: 0;
-            height: 100vh;
-            padding: 2rem 1rem;
-        }
-        .sidebar-header {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #22c55e;
-            margin-bottom: 2rem;
-            padding-left: 1rem;
-        }
-        .sidebar-nav {
-            flex: 1;
-        }
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.75rem 1rem;
-            margin: 0.25rem 0;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-weight: 500;
-        }
-        .nav-item:hover {
-            background: #f1f5f9;
-        }
-        .nav-item.active {
-            background: #22c55e;
-            color: white;
-        }
-        .nav-icon {
-            width: 24px;
-            text-align: center;
-            font-size: 1.2rem;
-        }
-
-        .main {
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-        }
-        .section-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-        }
-
-        .country-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-        .country-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .country-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-        }
-        .country-flag {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-        .country-name {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-        .country-code {
-            color: #64748b;
-            font-size: 0.9rem;
-            margin: 0.25rem 0 1rem;
-        }
-        .country-price {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #22c55e;
-            margin: 1rem 0;
-        }
-        .buy-btn {
-            background: #22c55e;
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .buy-btn:hover {
-            background: #16a34a;
-        }
-
-        .right-panel {
-            width: 320px;
-            background: white;
-            border-left: 1px solid #e2e8f0;
-            padding: 2rem 1rem;
-            position: sticky;
-            top: 0;
-            height: 100vh;
-            overflow-y: auto;
-        }
-        .balance-card {
-            background: #f8fafc;
-            border-radius: 20px;
-            padding: 1.5rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            border: 1px solid #e2e8f0;
-        }
-        .balance-label {
-            font-size: 0.9rem;
-            color: #64748b;
-        }
-        .balance-amount {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #22c55e;
-        }
-        .add-money-btn {
-            background: #22c55e;
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 40px;
-            font-weight: 600;
-            margin-top: 1rem;
-            cursor: pointer;
-        }
-        .active-orders {
-            margin-top: 1.5rem;
-        }
-        .order-item {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e2e8f0;
-        }
-        .order-country {
-            font-weight: 600;
-        }
-        .order-status {
-            font-size: 0.8rem;
-            color: #fbbf24;
-        }
-        .view-order-btn {
-            background: none;
-            border: none;
-            color: #22c55e;
-            cursor: pointer;
-            margin-top: 0.5rem;
-            font-size: 0.8rem;
-        }
-        .logout-btn {
-            background: #ef4444;
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 40px;
-            font-weight: 600;
-            margin-top: 1rem;
-            cursor: pointer;
-        }
-
-        /* Admin panel */
-        .admin-panel {
-            margin-top: 2rem;
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            border: 1px solid #e2e8f0;
-        }
-        .admin-panel h3 {
-            margin-bottom: 1rem;
-        }
-        .transaction-item {
-            background: #f8fafc;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-        }
-        .approve-btn {
-            background: #22c55e;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 40px;
-            cursor: pointer;
-            margin-left: 1rem;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.6);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background: white;
-            border-radius: 24px;
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .payment-info {
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 16px;
-            margin: 1rem 0;
-        }
-        .button-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-        .button-group button {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 40px;
-            font-weight: 600;
-            cursor: pointer;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1e293b; }
+        .dashboard { display: flex; min-height: 100vh; }
+        .sidebar { width: 260px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; padding: 2rem 1rem; }
+        .sidebar-header { font-size: 1.5rem; font-weight: bold; color: #22c55e; margin-bottom: 2rem; padding-left: 1rem; }
+        .sidebar-nav { flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; margin: 0.25rem 0; border-radius: 12px; cursor: pointer; transition: background 0.2s; font-weight: 500; }
+        .nav-item:hover { background: #f1f5f9; }
+        .nav-item.active { background: #22c55e; color: white; }
+        .nav-icon { width: 24px; text-align: center; font-size: 1.2rem; }
+        .main { flex: 1; padding: 2rem; overflow-y: auto; }
+        .section-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
+        .country-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+        .country-card { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; }
+        .country-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .country-flag { font-size: 2rem; margin-bottom: 0.5rem; }
+        .country-name { font-weight: 600; font-size: 1.1rem; }
+        .country-code { color: #64748b; font-size: 0.9rem; margin: 0.25rem 0 1rem; }
+        .country-price { font-size: 1.5rem; font-weight: bold; color: #22c55e; margin: 1rem 0; }
+        .buy-btn { background: #22c55e; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .buy-btn:hover { background: #16a34a; }
+        .right-panel { width: 320px; background: white; border-left: 1px solid #e2e8f0; padding: 2rem 1rem; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+        .balance-card { background: #f8fafc; border-radius: 20px; padding: 1.5rem; text-align: center; margin-bottom: 2rem; border: 1px solid #e2e8f0; }
+        .balance-label { font-size: 0.9rem; color: #64748b; }
+        .balance-amount { font-size: 2.5rem; font-weight: bold; color: #22c55e; }
+        .add-money-btn { background: #22c55e; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 40px; font-weight: 600; margin-top: 1rem; cursor: pointer; }
+        .active-orders { margin-top: 1.5rem; }
+        .order-item { background: #f8fafc; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px solid #e2e8f0; }
+        .order-country { font-weight: 600; }
+        .order-status { font-size: 0.8rem; color: #fbbf24; }
+        .view-order-btn { background: none; border: none; color: #22c55e; cursor: pointer; margin-top: 0.5rem; font-size: 0.8rem; }
+        .logout-btn { background: #ef4444; color: white; border: none; width: 100%; padding: 0.75rem; border-radius: 40px; font-weight: 600; margin-top: 1rem; cursor: pointer; }
+        .admin-panel { margin-top: 2rem; background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; }
+        .admin-panel h3 { margin-bottom: 1rem; }
+        .transaction-item { background: #f8fafc; padding: 1rem; margin-bottom: 1rem; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .approve-btn { background: #22c55e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 40px; cursor: pointer; margin-left: 1rem; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; border-radius: 24px; padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .payment-info { background: #f8fafc; padding: 1rem; border-radius: 16px; margin: 1rem 0; }
+        .button-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .button-group button { flex: 1; padding: 0.75rem; border: none; border-radius: 40px; font-weight: 600; cursor: pointer; }
         .replace-btn { background: #fbbf24; color: black; }
         .cancel-btn { background: #ef4444; color: white; }
         .complete-btn { background: #22c55e; color: white; }
-        .check-otp-btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 40px;
-            cursor: pointer;
-            margin-top: 1rem;
-        }
-
-        .auth-container {
-            max-width: 400px;
-            margin: 2rem auto;
-            background: white;
-            padding: 2rem;
-            border-radius: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        .auth-container input {
-            width: 100%;
-            padding: 0.75rem;
-            margin: 0.5rem 0;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-        }
-        .google-btn {
-            background: white;
-            border: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-
-        @media (max-width: 1024px) {
-            .right-panel { width: 280px; }
-        }
-        @media (max-width: 768px) {
-            .dashboard { flex-direction: column; }
-            .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; }
-            .right-panel { width: 100%; height: auto; position: static; }
-        }
+        .check-otp-btn { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 40px; cursor: pointer; margin-top: 1rem; }
+        .auth-container { max-width: 400px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .auth-container input { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .google-btn { background: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
+        .spinner { border: 4px solid rgba(0,0,0,0.1); border-radius: 50%; border-top: 4px solid #22c55e; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (max-width: 1024px) { .right-panel { width: 280px; } }
+        @media (max-width: 768px) { .dashboard { flex-direction: column; } .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; } .right-panel { width: 100%; height: auto; position: static; } }
     </style>
 </head>
 <body>
     <div class="dashboard">
-        <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">MRF Portal</div>
             <div class="sidebar-nav">
@@ -333,27 +71,17 @@
             </div>
         </div>
 
-        <!-- Main content -->
-        <div class="main" id="main">
+        <div class="main">
             <div class="section-title">Available WhatsApp Numbers</div>
             <div class="country-grid" id="country-list"></div>
-
-            <!-- Admin Panel (visible only for admin) -->
             <div id="admin-panel" class="admin-panel" style="display: none;">
                 <h3>Admin Panel</h3>
-                <div id="admin-orders-section">
-                    <h4>All Orders</h4>
-                    <div id="admin-orders-list"></div>
-                </div>
-                <div id="admin-transactions-section">
-                    <h4>Pending Transactions</h4>
-                    <div id="admin-transactions-list"></div>
-                </div>
+                <div id="admin-orders-section"><h4>All Orders</h4><div id="admin-orders-list"></div></div>
+                <div id="admin-transactions-section"><h4>Pending Transactions</h4><div id="admin-transactions-list"></div></div>
             </div>
         </div>
 
-        <!-- Right panel -->
-        <div class="right-panel" id="right-panel">
+        <div class="right-panel">
             <div id="user-info" style="display: none;">
                 <div class="balance-card">
                     <div class="balance-label">Your Balance</div>
@@ -361,10 +89,7 @@
                     <div>PKR</div>
                     <button class="add-money-btn" id="add-money-btn">Add Money</button>
                 </div>
-                <div class="active-orders">
-                    <h4>Active Orders</h4>
-                    <div id="active-orders-list"></div>
-                </div>
+                <div class="active-orders"><h4>Active Orders</h4><div id="active-orders-list"></div></div>
                 <button class="logout-btn" id="logout-btn">Logout</button>
             </div>
             <div id="login-prompt">
@@ -387,6 +112,16 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Processing modal (shown while waiting for number) -->
+    <div id="processing-modal" class="modal">
+        <div class="modal-content" style="text-align:center;">
+            <h3>Processing Order</h3>
+            <div class="spinner" style="margin:1rem auto;"></div>
+            <p>Searching for the best number...</p>
+            <p style="font-size:0.9rem;">This may take up to 30 seconds</p>
         </div>
     </div>
 
@@ -483,12 +218,16 @@
                 showAlert('Please login first', 'error');
                 return;
             }
+            // Show processing modal
+            const processingModal = document.getElementById('processing-modal');
+            processingModal.style.display = 'flex';
             try {
                 const res = await fetch('/api/order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ countryName: name, price, countryId: id })
                 });
+                processingModal.style.display = 'none';
                 if (res.ok) {
                     const order = await res.json();
                     showAlert('Number purchased!', 'success');
@@ -499,6 +238,7 @@
                     showAlert(err, 'error');
                 }
             } catch (err) {
+                processingModal.style.display = 'none';
                 showAlert('Error: ' + err.message, 'error');
             }
         }
@@ -508,41 +248,44 @@
                 const order = await fetchJSON('/api/orders/' + orderId);
                 activeOrder = order;
                 const modal = document.getElementById('order-modal');
-                document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.number || 'Processing...'}`;
-                if (order.smsCode) {
-                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${order.smsCode}</div>`;
+                document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.phone_number || 'Processing...'}`;
+                if (order.otp_code) {
+                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${order.otp_code}</div>`;
                 } else {
                     document.getElementById('order-otp').innerHTML = '';
                 }
                 updateTimerDisplay(order);
                 updateOrderButtons(order);
                 modal.style.display = 'flex';
-                if (order.status === 'active' && !order.smsCode) {
+                if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
-                            if (updated.smsCode) {
+                            if (updated.otp_code) {
                                 clearInterval(otpInterval);
                                 activeOrder = updated;
-                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.smsCode}</div>`;
+                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
                                 updateOrderButtons(updated);
                                 showAlert('OTP received!', 'success');
+                                // play sound
+                                const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+                                audio.play().catch(e => console.log('Audio play failed'));
                             }
                         } catch (err) {}
                     }, 5000);
                 }
                 if (timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(async () => {
-                    if (activeOrder && activeOrder.status === 'active' && !activeOrder.smsCode) {
+                    if (activeOrder && activeOrder.order_status === 'active' && !activeOrder.otp_code) {
                         try {
                             const updated = await fetchJSON('/api/orders/' + activeOrder.id);
                             activeOrder = updated;
                             updateTimerDisplay(updated);
-                            if (updated.smsCode) {
+                            if (updated.otp_code) {
                                 clearInterval(timerInterval);
                                 clearInterval(otpInterval);
-                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.smsCode}</div>`;
+                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
                                 updateOrderButtons(updated);
                             }
                         } catch (err) {}
@@ -556,7 +299,7 @@
         }
 
         function updateTimerDisplay(order) {
-            const createdAt = new Date(order.createdAt);
+            const createdAt = new Date(order.created_at);
             const expiry = new Date(createdAt.getTime() + 25 * 60 * 1000);
             const now = new Date();
             const diff = Math.max(0, expiry - now);
@@ -572,7 +315,7 @@
         function updateOrderButtons(order) {
             const container = document.getElementById('order-buttons');
             container.innerHTML = '';
-            if (order.smsCode) {
+            if (order.otp_code) {
                 container.innerHTML = '<button class="complete-btn" id="complete-order">Complete Order</button>';
                 document.getElementById('complete-order').addEventListener('click', async () => {
                     await fetch('/api/orders/' + order.id + '/complete', { method: 'POST' });
@@ -582,7 +325,7 @@
                 });
                 return;
             }
-            if (order.status === 'active') {
+            if (order.order_status === 'active') {
                 container.innerHTML = `
                     <button class="replace-btn" id="replace-order">🔄 Replace Number</button>
                     <button class="cancel-btn" id="cancel-order">❌ Cancel & Refund</button>
@@ -621,7 +364,7 @@
             currentUser = user;
             document.getElementById('user-balance').innerText = user.balance;
             const orders = await fetchJSON('/api/orders');
-            const active = orders.filter(o => o.status === 'active' && !o.smsCode);
+            const active = orders.filter(o => o.order_status === 'active' && !o.otp_code);
             const container = document.getElementById('active-orders-list');
             if (active.length) {
                 container.innerHTML = active.map(o => `
@@ -638,7 +381,6 @@
                 container.innerHTML = '<p>No active orders</p>';
             }
 
-            // Show admin panel only if admin
             if (user.role === 'admin') {
                 document.getElementById('admin-panel').style.display = 'block';
                 await loadAdminData();
@@ -657,7 +399,7 @@
                 if (orders.length) {
                     ordersContainer.innerHTML = orders.map(o => `
                         <div style="background:#f8fafc; padding:0.5rem; margin-bottom:0.5rem; border-radius:8px;">
-                            <strong>${o.userEmail}</strong> | ${o.country} | ${o.price} PKR | Status: ${o.status}
+                            <strong>${o.user_email}</strong> | ${o.country} | ${o.price} PKR | Status: ${o.order_status}
                         </div>
                     `).join('');
                 } else {
@@ -668,7 +410,7 @@
                 if (transactions.length) {
                     transactionsContainer.innerHTML = transactions.map(t => `
                         <div class="transaction-item">
-                            <strong>${t.userEmail}</strong> | ${t.amount} PKR
+                            <strong>${t.user_email}</strong> | ${t.amount} PKR
                             <a href="/uploads/${t.screenshot}" target="_blank">View Screenshot</a>
                             <button class="approve-btn" data-id="${t.id}">Approve</button>
                         </div>
@@ -699,7 +441,7 @@
                 const result = await fetchJSON('/api/orders/' + orderId + '/otp');
                 if (result.received) {
                     document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${result.code}</div>`;
-                    updateOrderButtons({ ...activeOrder, smsCode: result.code });
+                    updateOrderButtons({ ...activeOrder, otp_code: result.code });
                     showAlert('OTP received!', 'success');
                 } else {
                     showAlert('No OTP yet. Still waiting.', 'error');
@@ -709,34 +451,17 @@
             }
         }
 
+        // Auth functions (unchanged)
         async function login(email, password) {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            if (res.ok) {
-                await checkAuth();
-                showAlert('Logged in', 'success');
-            } else {
-                showAlert(await res.text(), 'error');
-            }
+            const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+            if (res.ok) { await checkAuth(); showAlert('Logged in', 'success'); }
+            else showAlert(await res.text(), 'error');
         }
-
         async function register(name, email, password) {
-            const res = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password })
-            });
-            if (res.ok) {
-                showAlert('Registered! Please login.', 'success');
-                showLoginForm();
-            } else {
-                showAlert(await res.text(), 'error');
-            }
+            const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+            if (res.ok) { showAlert('Registered! Please login.', 'success'); showLoginForm(); }
+            else showAlert(await res.text(), 'error');
         }
-
         async function logout() {
             await fetch('/api/logout');
             currentUser = null;
@@ -747,7 +472,6 @@
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
         }
-
         async function checkAuth() {
             try {
                 const res = await fetch('/api/me');
@@ -760,74 +484,29 @@
                     document.getElementById('user-info').style.display = 'none';
                     document.getElementById('login-prompt').style.display = 'block';
                 }
-            } catch (err) {
-                console.error(err);
-            }
+            } catch (err) { console.error(err); }
         }
-
-        function showLoginForm() {
-            document.getElementById('register-form').style.display = 'none';
-            document.querySelector('#login-prompt .auth-container').style.display = 'block';
-        }
-        function showRegisterForm() {
-            document.querySelector('#login-prompt .auth-container').style.display = 'none';
-            document.getElementById('register-form').style.display = 'block';
-        }
+        function showLoginForm() { document.getElementById('register-form').style.display = 'none'; document.querySelector('#login-prompt .auth-container').style.display = 'block'; }
+        function showRegisterForm() { document.querySelector('#login-prompt .auth-container').style.display = 'none'; document.getElementById('register-form').style.display = 'block'; }
 
         // Event listeners
-        document.getElementById('login-btn').addEventListener('click', () => {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            login(email, password);
-        });
-        document.getElementById('register-btn').addEventListener('click', () => {
-            const name = document.getElementById('reg-name').value;
-            const email = document.getElementById('reg-email').value;
-            const password = document.getElementById('reg-password').value;
-            register(name, email, password);
-        });
-        document.getElementById('show-register').addEventListener('click', (e) => {
-            e.preventDefault();
-            showRegisterForm();
-        });
-        document.getElementById('show-login').addEventListener('click', (e) => {
-            e.preventDefault();
-            showLoginForm();
-        });
+        document.getElementById('login-btn').addEventListener('click', () => login(document.getElementById('login-email').value, document.getElementById('login-password').value));
+        document.getElementById('register-btn').addEventListener('click', () => register(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value));
+        document.getElementById('show-register').addEventListener('click', (e) => { e.preventDefault(); showRegisterForm(); });
+        document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
         document.getElementById('logout-btn').addEventListener('click', logout);
-        document.getElementById('add-money-btn').addEventListener('click', () => {
-            document.getElementById('payment-modal').style.display = 'flex';
-        });
-        document.getElementById('close-payment-modal').addEventListener('click', () => {
-            document.getElementById('payment-modal').style.display = 'none';
-        });
-        document.getElementById('close-order-modal').addEventListener('click', () => {
-            document.getElementById('order-modal').style.display = 'none';
-            if (otpInterval) clearInterval(otpInterval);
-            if (timerInterval) clearInterval(timerInterval);
-        });
-        document.getElementById('google-signin').addEventListener('click', () => {
-            showRegisterForm();
-        });
-        document.getElementById('check-otp-manual').addEventListener('click', async () => {
-            if (activeOrder) {
-                await manualOtpCheck(activeOrder.id);
-            }
-        });
-
+        document.getElementById('add-money-btn').addEventListener('click', () => document.getElementById('payment-modal').style.display = 'flex');
+        document.getElementById('close-payment-modal').addEventListener('click', () => document.getElementById('payment-modal').style.display = 'none');
+        document.getElementById('close-order-modal').addEventListener('click', () => { document.getElementById('order-modal').style.display = 'none'; if (otpInterval) clearInterval(otpInterval); if (timerInterval) clearInterval(timerInterval); });
+        document.getElementById('google-signin').addEventListener('click', () => showRegisterForm());
         document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
-            if (res.ok) {
-                showAlert('Payment screenshot submitted. It will be reviewed soon.', 'success');
-                document.getElementById('payment-modal').style.display = 'none';
-                e.target.reset();
-            } else {
-                const err = await res.text();
-                showAlert(err, 'error');
-            }
+            if (res.ok) { showAlert('Payment screenshot submitted. It will be reviewed soon.', 'success'); document.getElementById('payment-modal').style.display = 'none'; e.target.reset(); }
+            else { const err = await res.text(); showAlert(err, 'error'); }
         });
+        document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
 
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -841,19 +520,5 @@
         loadCountries();
         checkAuth();
     </script>
-
-    <!-- Tawk.to Live Chat Widget -->
-    <script type="text/javascript">
-    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-    (function(){
-    var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-    s1.async=true;
-    s1.src='https://embed.tawk.to/69c3a5ccacf0f81c37903f0d/1jki3vag6';
-    s1.charset='UTF-8';
-    s1.setAttribute('crossorigin','*');
-    s0.parentNode.insertBefore(s1,s0);
-    })();
-    </script>
-    <!-- End of Tawk.to Script -->
 </body>
 </html>
