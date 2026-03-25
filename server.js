@@ -29,9 +29,11 @@ let nextUserId = 3;
 let nextOrderId = 1;
 let nextTxId = 1;
 
+// ----- SMSBower configuration -----
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
+// ----- Country list -----
 const countries = [
     { name: 'South Africa', code: '+27', price: 170, countryId: 31, flag: '🇿🇦' },
     { name: 'Indonesia', code: '+62', price: 200, countryId: 6, flag: '🇮🇩' },
@@ -46,6 +48,7 @@ const countries = [
     { name: 'United Kingdom', code: '+44', price: 450, countryId: 16, flag: '🇬🇧' }
 ];
 
+// ----- Helper functions -----
 function findUser(email) { return users.find(u => u.email === email); }
 function findUserById(id) { return users.find(u => u.id === id); }
 
