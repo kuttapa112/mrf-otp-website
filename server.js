@@ -3,11 +3,18 @@ const session = require('express-session');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+
+const UPLOAD_DIR = '/app/uploads';
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+const upload = multer({ dest: UPLOAD_DIR });
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -267,6 +274,10 @@ async function updateUserLastLogin(userId) {
 const SMSBOWER_API_KEY = process.env.SMSBOWER_API_KEY || 'CHANGE_THIS_API_KEY';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL;
+
 const countries = [
     { name: 'South Africa', code: '+27', price: 170, countryId: 31, flag: '🇿🇦' },
     { name: 'Indonesia', code: '+62', price: 200, countryId: 6, flag: '🇮🇩' },
@@ -283,6 +294,14 @@ const countries = [
 
 function pkrToUsd(pkr) {
     return parseFloat((pkr / 280).toFixed(2));
+}
+
+function randomPassword() {
+    return crypto.randomBytes(24).toString('hex');
+}
+
+function ensureGoogleConfigured() {
+    return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL;
 }
 
 async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
@@ -366,6 +385,112 @@ app.get('/', (req, res) => {
 
 app.get('/api/countries', (req, res) => {
     res.json(countries);
+});
+
+app.get('/api/auth/google', (req, res) => {
+    return res.redirect('/auth/google');
+});
+
+app.get('/auth/google', (req, res) => {
+    if (!ensureGoogleConfigured()) {
+        return res.status(500).send('Google login not configured');
+    }
+
+    const state = crypto.randomBytes(16).toString('hex');
+    req.session.google_oauth_state = state;
+
+    const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: GOOGLE_CALLBACK_URL,
+        response_type: 'code',
+        scope: 'openid email profile',
+        state,
+        access_type: 'online',
+        prompt: 'select_account'
+    });
+
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+    try {
+        if (!ensureGoogleConfigured()) {
+            return res.status(500).send('Google login not configured');
+        }
+
+        const { code, state, error } = req.query;
+
+        if (error) {
+            return res.redirect('/?google_error=access_denied');
+        }
+
+        if (!code || !state || state !== req.session.google_oauth_state) {
+            return res.redirect('/?google_error=invalid_state');
+        }
+
+        delete req.session.google_oauth_state;
+
+        const tokenResponse = await axios.post(
+            'https://oauth2.googleapis.com/token',
+            new URLSearchParams({
+                client_id: GOOGLE_CLIENT_ID,
+                client_secret: GOOGLE_CLIENT_SECRET,
+                code,
+                grant_type: 'authorization_code',
+                redirect_uri: GOOGLE_CALLBACK_URL
+            }).toString(),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                timeout: 15000
+            }
+        );
+
+        const accessToken = tokenResponse.data.access_token;
+        if (!accessToken) {
+            return res.redirect('/?google_error=no_access_token');
+        }
+
+        const profileResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            },
+            timeout: 15000
+        });
+
+        const profile = profileResponse.data;
+        if (!profile || !profile.email) {
+            return res.redirect('/?google_error=no_email');
+        }
+
+        let user = await findUser(profile.email);
+
+        if (!user) {
+            await createUser(
+                profile.name || profile.email.split('@')[0],
+                profile.email,
+                randomPassword()
+            );
+            user = await findUser(profile.email);
+        }
+
+        if (!user) {
+            return res.redirect('/?google_error=user_create_failed');
+        }
+
+        if (!user.is_active) {
+            return res.redirect('/?google_error=account_blocked');
+        }
+
+        req.session.userId = user.id;
+        await updateUserLastLogin(user.id);
+        await updateUserLoginAttempts(user.id, 0);
+
+        return res.redirect('/');
+    } catch (err) {
+        return res.redirect('/?google_error=oauth_failed');
+    }
 });
 
 app.post('/api/register', async (req, res) => {
@@ -463,7 +588,7 @@ app.post('/api/order', ensureAuth, async (req, res) => {
 
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
-        const cancelAvailableAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
+        const cancelAvailableAt = new Date(now.getTime() + 1 * 60 * 1000).toISOString();
 
         await client.query('UPDATE users SET balance = $1 WHERE id = $2', [
             Number(user.balance) - Number(price),
@@ -554,7 +679,7 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
 
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
-        const cancelAvailableAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
+        const cancelAvailableAt = new Date(now.getTime() + 1 * 60 * 1000).toISOString();
 
         await updateOrder(order.id, {
             phone_number: result.phoneNumber,
@@ -813,7 +938,7 @@ app.post('/api/add-funds', ensureAuth, upload.single('screenshot'), async (req, 
     }
 });
 
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static('/app/uploads'));
 
 initDB()
     .then(() => {
