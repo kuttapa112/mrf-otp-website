@@ -132,25 +132,23 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* ensures content starts at the top */
         }
-        /* Login form appears at the top */
+        /* Ensure login form appears at the top */
         #login-prompt, #user-info {
             width: 100%;
+            margin-bottom: 1.5rem;
         }
         .auth-container {
-            max-width: 100%;
-            background: var(--card-bg);
-            padding: 1.5rem;
+            background: var(--bg-color);
             border-radius: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
         }
         .auth-container input {
             width: 100%;
             padding: 0.75rem;
             margin: 0.5rem 0;
-            background: var(--bg-color);
+            background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 12px;
             color: var(--text-color);
@@ -189,7 +187,9 @@
             margin-top: 1rem;
             cursor: pointer;
         }
-        .active-orders { margin-top: 1rem; }
+        .active-orders {
+            margin-top: 1rem;
+        }
         .order-item {
             background: var(--bg-color);
             border-radius: 12px;
@@ -374,7 +374,10 @@
                     <div>PKR</div>
                     <button class="add-money-btn" id="add-money-btn">Add Money</button>
                 </div>
-                <div class="active-orders"><h4>Active Orders</h4><div id="active-orders-list"></div></div>
+                <div class="active-orders">
+                    <h4>Active Orders</h4>
+                    <div id="active-orders-list"></div>
+                </div>
                 <button class="logout-btn" id="logout-btn">Logout</button>
             </div>
             <!-- Login/Signup section (shown when logged out) -->
@@ -383,7 +386,7 @@
                     <h3>Login</h3>
                     <input type="email" id="login-email" placeholder="Email">
                     <input type="password" id="login-password" placeholder="Password">
-                    <button id="login-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Login</button>
+                    <button id="login-btn" class="login-btn">Login</button>
                     <button id="google-signin" class="google-btn">🔐 Sign in with Google</button>
                     <p style="margin-top:1rem; text-align:center;">No account? <a href="#" id="show-register">Sign up</a></p>
                 </div>
@@ -393,7 +396,7 @@
                         <input type="text" id="reg-name" placeholder="Full Name">
                         <input type="email" id="reg-email" placeholder="Email">
                         <input type="password" id="reg-password" placeholder="Password">
-                        <button id="register-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Register</button>
+                        <button id="register-btn" class="register-btn">Register</button>
                         <p style="margin-top:1rem; text-align:center;">Already have an account? <a href="#" id="show-login">Login</a></p>
                     </div>
                 </div>
@@ -424,7 +427,7 @@
             <form id="addFundsForm" enctype="multipart/form-data">
                 <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:12px;">
                 <input type="file" name="screenshot" accept="image/*" required style="margin-top:1rem;">
-                <button type="submit" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
+                <button type="submit" class="submit-payment-btn">Submit Payment</button>
             </form>
             <button id="close-payment-modal" style="margin-top:1rem;">Cancel</button>
         </div>
