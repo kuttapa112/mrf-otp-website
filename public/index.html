@@ -36,13 +36,13 @@
             transition: background 0.3s, color 0.3s;
         }
 
-        /* Hamburger button (only visible on mobile) */
+        /* Hamburger button (visible on mobile) */
         .hamburger {
             display: none;
             position: fixed;
             top: 1rem;
             left: 1rem;
-            z-index: 1000;
+            z-index: 1002;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -52,7 +52,7 @@
             line-height: 1;
         }
 
-        /* Sidebar – desktop: always visible, sticky; mobile: hidden by default, slides in */
+        /* Sidebar – desktop: sticky, part of flex flow; mobile: fixed, hidden by default */
         .sidebar {
             width: 260px;
             background: var(--sidebar-bg);
@@ -67,7 +67,7 @@
             z-index: 1001;
         }
 
-        /* Overlay when sidebar is open on mobile (only dims background, not content) */
+        /* Overlay – only for mobile, dims background behind sidebar */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -101,6 +101,11 @@
         .nav-item:hover { background: var(--hover-bg); }
         .nav-item.active { background: #22c55e; color: white; }
         .nav-icon { width: 24px; text-align: center; font-size: 1.2rem; }
+
+        .dashboard {
+            display: flex;
+            min-height: 100vh;
+        }
 
         .main {
             flex: 1;
@@ -362,6 +367,7 @@
             .hamburger {
                 display: block;
             }
+            /* Sidebar becomes fixed, hidden initially */
             .sidebar {
                 position: fixed;
                 top: 0;
@@ -370,6 +376,7 @@
                 height: 100%;
                 z-index: 1001;
                 box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+                border-right: none;
             }
             .sidebar.open {
                 transform: translateX(0);
@@ -377,7 +384,7 @@
             .sidebar-overlay {
                 display: block;
             }
-            /* Reorder: right panel first, then main content, sidebar stays hidden */
+            /* Reorder: right panel first, then main content */
             .dashboard {
                 flex-direction: column;
             }
@@ -387,7 +394,6 @@
                 position: static;
                 order: 1;
                 border-left: none;
-                border-top: none;
                 border-bottom: 1px solid var(--border-color);
                 margin-bottom: 1rem;
             }
@@ -553,7 +559,7 @@
             });
         });
 
-        // ----- Existing JavaScript (unchanged) -----
+        // ----- REST OF YOUR JAVASCRIPT (identical to previous version) -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
