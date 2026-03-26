@@ -1,11 +1,10 @@
-// server.js – MRF OTP Service (fixed OTP, 2‑min cancel delay, admin payments)
+// server.js – MRF OTP Service (plain sqlite3)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -20,125 +19,222 @@ app.use(session({
     cookie: { secure: false }
 }));
 
-// ----- Database connection -----
+// ----- Database connection (using sqlite3 directly) -----
 let db;
-async function initDB() {
-    db = await open({
-        filename: './bot_database.db',
-        driver: sqlite3.Database
+function initDB() {
+    return new Promise((resolve, reject) => {
+        db = new sqlite3.Database('./bot_database.db', (err) => {
+            if (err) reject(err);
+            else {
+                db.run(`
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email TEXT UNIQUE,
+                        password TEXT,
+                        name TEXT,
+                        balance REAL DEFAULT 0,
+                        role TEXT DEFAULT 'user',
+                        referralCode TEXT,
+                        is_active INTEGER DEFAULT 1,
+                        login_attempts INTEGER DEFAULT 0,
+                        last_login TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    );
+                    CREATE TABLE IF NOT EXISTS orders (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER,
+                        user_email TEXT,
+                        service_type TEXT,
+                        service_name TEXT,
+                        country TEXT,
+                        country_code TEXT,
+                        price REAL,
+                        payment_method TEXT,
+                        payment_status TEXT DEFAULT 'pending',
+                        order_status TEXT DEFAULT 'pending',
+                        phone_number TEXT,
+                        activation_id TEXT,
+                        otp_received INTEGER DEFAULT 0,
+                        otp_code TEXT,
+                        expires_at TEXT,
+                        cancel_available_at TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        completed_at TEXT
+                    );
+                    CREATE TABLE IF NOT EXISTS transactions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER,
+                        user_email TEXT,
+                        amount REAL,
+                        screenshot TEXT,
+                        status TEXT DEFAULT 'pending',
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    );
+                `, (err) => {
+                    if (err) reject(err);
+                    else {
+                        // Insert default admin and test user
+                        db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com', (err, row) => {
+                            if (!row) {
+                                db.run('INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
+                                    'admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN');
+                            }
+                            db.get('SELECT id FROM users WHERE email = ?', 'test@test.com', (err, row) => {
+                                if (!row) {
+                                    db.run('INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
+                                        'test@test.com', 'test123', 'Test User', 'user', 'TEST');
+                                }
+                                resolve();
+                            });
+                        });
+                    }
+                });
+            }
+        });
     });
-    await db.exec(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE,
-            password TEXT,
-            name TEXT,
-            balance REAL DEFAULT 0,
-            role TEXT DEFAULT 'user',
-            referralCode TEXT,
-            is_active INTEGER DEFAULT 1,
-            login_attempts INTEGER DEFAULT 0,
-            last_login TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            user_email TEXT,
-            service_type TEXT,
-            service_name TEXT,
-            country TEXT,
-            country_code TEXT,
-            price REAL,
-            payment_method TEXT,
-            payment_status TEXT DEFAULT 'pending',
-            order_status TEXT DEFAULT 'pending',
-            phone_number TEXT,
-            activation_id TEXT,
-            otp_received INTEGER DEFAULT 0,
-            otp_code TEXT,
-            expires_at TEXT,
-            cancel_available_at TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT
-        );
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            user_email TEXT,
-            amount REAL,
-            screenshot TEXT,
-            status TEXT DEFAULT 'pending',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-    `);
-    // Insert default admin and test user if they don't exist
-    const adminExists = await db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com');
-    if (!adminExists) {
-        await db.run(
-            `INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)`,
-            'admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN'
-        );
-    }
-    const testExists = await db.get('SELECT id FROM users WHERE email = ?', 'test@test.com');
-    if (!testExists) {
-        await db.run(
-            `INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)`,
-            'test@test.com', 'test123', 'Test User', 'user', 'TEST'
-        );
-    }
 }
 initDB().catch(console.error);
 
-// ----- Helper functions for database operations -----
-async function findUser(email) { return db.get('SELECT * FROM users WHERE email = ?', email); }
-async function findUserById(id) { return db.get('SELECT * FROM users WHERE id = ?', id); }
-async function createUser(name, email, password) {
+// Helper functions
+function findUser(email) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE email = ?', email, (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+function findUserById(id) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE id = ?', id, (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+function createUser(name, email, password) {
     const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const result = await db.run('INSERT INTO users (email, password, name, referralCode) VALUES (?, ?, ?, ?)', email, password, name, referralCode);
-    return result.lastID;
+    return new Promise((resolve, reject) => {
+        db.run('INSERT INTO users (email, password, name, referralCode) VALUES (?, ?, ?, ?)', email, password, name, referralCode, function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
 }
-async function updateUserBalance(userId, newBalance) { await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId); }
-async function addTransaction(userId, userEmail, amount, screenshot) {
-    await db.run('INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)', userId, userEmail, amount, screenshot);
+function updateUserBalance(userId, newBalance) {
+    return new Promise((resolve, reject) => {
+        db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
 }
-async function getPendingTransactions() { return db.all('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC'); }
-async function approveTransaction(txId) {
-    const tx = await db.get('SELECT * FROM transactions WHERE id = ?', txId);
-    if (!tx) return false;
-    await db.run('UPDATE transactions SET status = "approved" WHERE id = ?', txId);
-    const user = await findUserById(tx.user_id);
-    if (user) await updateUserBalance(tx.user_id, user.balance + tx.amount);
-    return true;
+function addTransaction(userId, userEmail, amount, screenshot) {
+    return new Promise((resolve, reject) => {
+        db.run('INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)', userId, userEmail, amount, screenshot, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
 }
-async function addOrder(order) {
-    const result = await db.run(`
-        INSERT INTO orders (
-            user_id, user_email, service_type, service_name, country, country_code, price,
-            payment_method, order_status, phone_number, activation_id,
-            expires_at, cancel_available_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-        order.user_id, order.user_email, order.service_type, order.service_name,
-        order.country, order.country_code, order.price,
-        order.payment_method, order.order_status, order.phone_number,
-        order.activation_id, order.expires_at, order.cancel_available_at, order.created_at
-    ]);
-    return result.lastID;
+function getPendingTransactions() {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC', (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
 }
-async function getOrdersByUser(userId) { return db.all('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', userId); }
-async function getOrderById(orderId) { return db.get('SELECT * FROM orders WHERE id = ?', orderId); }
-async function updateOrder(orderId, updates) {
+function approveTransaction(txId) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM transactions WHERE id = ?', txId, (err, tx) => {
+            if (err || !tx) return reject(err || new Error('Transaction not found'));
+            db.run('UPDATE transactions SET status = "approved" WHERE id = ?', txId, (err) => {
+                if (err) reject(err);
+                else {
+                    db.get('SELECT * FROM users WHERE id = ?', tx.user_id, (err, user) => {
+                        if (err || !user) reject(err);
+                        else {
+                            updateUserBalance(tx.user_id, user.balance + tx.amount).then(resolve).catch(reject);
+                        }
+                    });
+                }
+            });
+        });
+    });
+}
+function addOrder(order) {
+    return new Promise((resolve, reject) => {
+        db.run(`
+            INSERT INTO orders (
+                user_id, user_email, service_type, service_name, country, country_code, price,
+                payment_method, order_status, phone_number, activation_id,
+                expires_at, cancel_available_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            order.user_id, order.user_email, order.service_type, order.service_name,
+            order.country, order.country_code, order.price,
+            order.payment_method, order.order_status, order.phone_number,
+            order.activation_id, order.expires_at, order.cancel_available_at, order.created_at
+        ], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+function getOrdersByUser(userId) {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', userId, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+function getOrderById(orderId) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM orders WHERE id = ?', orderId, (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+function updateOrder(orderId, updates) {
     const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
     const values = Object.values(updates);
     values.push(orderId);
-    await db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values);
+    return new Promise((resolve, reject) => {
+        db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
 }
-async function getAllOrders() { return db.all('SELECT * FROM orders ORDER BY id DESC'); }
-async function updateUserLoginAttempts(userId, attempts) { await db.run('UPDATE users SET login_attempts = ? WHERE id = ?', attempts, userId); }
-async function updateUserLastLogin(userId) { await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', userId); }
+function getAllOrders() {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM orders ORDER BY id DESC', (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+function updateUserLoginAttempts(userId, attempts) {
+    return new Promise((resolve, reject) => {
+        db.run('UPDATE users SET login_attempts = ? WHERE id = ?', attempts, userId, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+}
+function updateUserLastLogin(userId) {
+    return new Promise((resolve, reject) => {
+        db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', userId, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+}
 
-// ----- SMSBower configuration -----
+// ----- SMSBower configuration (unchanged) -----
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
@@ -173,7 +269,7 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
                 const parts = resText.split(':');
                 if (parts.length >= 3) return { success: true, activationId: parts[1], phoneNumber: `+${parts[2]}` };
             }
-            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 10000)); // 10 second wait
+            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 10000));
         } catch (err) {
             console.error(`Attempt ${attempt} error:`, err.message);
             if (attempt === maxAttempts) return { success: false, error: err.message };
@@ -183,7 +279,6 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
     return { success: false, error: 'No number available after all attempts' };
 }
 
-// ----- OTP check function -----
 async function checkSmsStatus(activationId) {
     try {
         const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
@@ -235,7 +330,9 @@ app.post('/api/login', async (req, res) => {
             if (user) {
                 const newAttempts = (user.login_attempts || 0) + 1;
                 await updateUserLoginAttempts(user.id, newAttempts);
-                if (newAttempts >= 5) await db.run('UPDATE users SET is_active = 0 WHERE id = ?', user.id);
+                if (newAttempts >= 5) {
+                    db.run('UPDATE users SET is_active = 0 WHERE id = ?', user.id);
+                }
             }
             res.status(401).send('Invalid credentials');
         }
@@ -342,7 +439,6 @@ app.post('/api/orders/:orderId/cancel', async (req, res) => {
     if (order.user_id !== user.id) return res.status(403).send('Unauthorized');
     if (order.order_status !== 'active') return res.status(400).send('Cannot cancel now');
     if (order.otp_received) return res.status(400).send('OTP already received, cannot cancel');
-    // Check 2-minute delay
     const now = new Date();
     const cancelAvailable = new Date(order.cancel_available_at);
     if (now < cancelAvailable) {
@@ -434,7 +530,7 @@ app.get('/api/debug/order/:orderId', async (req, res) => {
 // Admin routes
 function isAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const user = await findUserById(req.session.userId);
+    const user = findUserById(req.session.userId);
     if (user.role !== 'admin') return res.status(403).send('Admin only');
     next();
 }
@@ -460,9 +556,12 @@ app.post('/api/admin/transactions/:txId/approve', async (req, res) => {
     const user = await findUserById(req.session.userId);
     if (user.role !== 'admin') return res.status(403).send('Admin only');
     const txId = parseInt(req.params.txId);
-    const success = await approveTransaction(txId);
-    if (success) res.send('OK');
-    else res.status(404).send('Transaction not found');
+    try {
+        await approveTransaction(txId);
+        res.send('OK');
+    } catch (err) {
+        res.status(404).send('Transaction not found');
+    }
 });
 
 app.post('/api/add-funds', upload.single('screenshot'), async (req, res) => {
