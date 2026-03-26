@@ -253,7 +253,7 @@ const countries = [
     { name: 'Vietnam', code: '+84', price: 210, countryId: 10, flag: '🇻🇳' },
     { name: 'Colombia', code: '+57', price: 270, countryId: 33, flag: '🇨🇴' },
     { name: 'Saudi Arabia', code: '+966', price: 320, countryId: 53, flag: '🇸🇦' },
-    { name: 'Brazil', code: '+55', price: 350, countryId: 73, flag: '🇧🇷' },
+    { name: 'Brazil', code: '+55', price: 370, countryId: 73, flag: '🇧🇷' },
     { name: 'USA', code: '+1', price: 400, countryId: 187, flag: '🇺🇸' },
     { name: 'United Kingdom', code: '+44', price: 450, countryId: 16, flag: '🇬🇧' }
 ];
