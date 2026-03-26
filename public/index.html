@@ -36,7 +36,7 @@
             transition: background 0.3s, color 0.3s;
         }
 
-        /* Hamburger button (only visible on mobile) */
+        /* Hamburger button (visible on mobile) */
         .hamburger {
             display: none;
             position: fixed;
@@ -328,15 +328,6 @@
         .replace-btn { background: #fbbf24; color: black; }
         .cancel-btn { background: #ef4444; color: white; }
         .complete-btn { background: #22c55e; color: white; }
-        .check-otp-btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 40px;
-            cursor: pointer;
-            margin-top: 1rem;
-        }
 
         .spinner {
             border: 4px solid rgba(0,0,0,0.1);
@@ -350,6 +341,18 @@
             vertical-align: middle;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .big-spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 1rem;
+        }
+
+        .waiting-message {
+            text-align: center;
+            margin: 1rem 0;
+            color: #64748b;
+        }
 
         .theme-toggle {
             position: fixed;
@@ -545,7 +548,11 @@
             <h3>Order Details</h3>
             <div id="order-number"></div>
             <div id="order-timer" style="margin:1rem 0;"></div>
-            <div id="order-otp"></div>
+            <div id="order-waiting" style="display: none;">
+                <div class="big-spinner spinner" style="margin:0 auto 1rem;"></div>
+                <div class="waiting-message">Waiting for OTP...</div>
+            </div>
+            <div id="order-otp" style="display: none;"></div>
             <div id="order-buttons" class="button-group"></div>
             <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
@@ -702,14 +709,23 @@
                 activeOrder = order;
                 const modal = document.getElementById('order-modal');
                 document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.phone_number || 'Processing...'}`;
+                
+                // Show waiting spinner and hide OTP area initially
+                const waitingDiv = document.getElementById('order-waiting');
+                const otpDiv = document.getElementById('order-otp');
                 if (order.otp_code) {
-                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${order.otp_code}</div>`;
+                    waitingDiv.style.display = 'none';
+                    otpDiv.style.display = 'block';
+                    otpDiv.innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${order.otp_code}</div>`;
                 } else {
-                    document.getElementById('order-otp').innerHTML = '';
+                    waitingDiv.style.display = 'block';
+                    otpDiv.style.display = 'none';
                 }
+                
                 updateTimerDisplay(order);
                 updateOrderButtons(order);
                 modal.style.display = 'flex';
+                
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
                     // Automatic OTP check every 5 seconds
@@ -719,7 +735,9 @@
                             if (updated.otp_code) {
                                 clearInterval(otpInterval);
                                 activeOrder = updated;
-                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
+                                waitingDiv.style.display = 'none';
+                                otpDiv.style.display = 'block';
+                                otpDiv.innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
                                 updateOrderButtons(updated);
                                 showAlert('OTP received!', 'success');
                                 notificationSound.play().catch(e => console.log('Audio play failed'));
@@ -727,6 +745,7 @@
                         } catch (err) {}
                     }, 5000);
                 }
+                
                 if (timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(async () => {
                     if (activeOrder && activeOrder.order_status === 'active' && !activeOrder.otp_code) {
@@ -737,7 +756,9 @@
                             if (updated.otp_code) {
                                 clearInterval(timerInterval);
                                 clearInterval(otpInterval);
-                                document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
+                                waitingDiv.style.display = 'none';
+                                otpDiv.style.display = 'block';
+                                otpDiv.innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
                                 updateOrderButtons(updated);
                             }
                         } catch (err) {}
