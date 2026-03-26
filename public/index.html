@@ -37,7 +37,11 @@
             transition: background 0.3s, color 0.3s;
         }
 
-        .dashboard { display: flex; min-height: 100vh; }
+        .dashboard {
+            display: flex;
+            min-height: 100vh;
+        }
+
         .sidebar {
             width: 260px;
             background: var(--sidebar-bg);
@@ -330,12 +334,35 @@
             font-size: 1rem;
         }
 
-        @media (max-width: 1024px) { .right-panel { width: 280px; } }
+        /* Mobile adjustments: reorder so right panel (login) comes after sidebar but before main content */
         @media (max-width: 768px) {
-            .dashboard { flex-direction: column; }
-            .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; }
-            .right-panel { width: 100%; height: auto; position: static; }
-            .theme-toggle { bottom: 0.5rem; right: 0.5rem; }
+            .dashboard {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                flex-direction: row;
+                justify-content: space-evenly;
+                padding: 1rem;
+                position: static;
+            }
+            .right-panel {
+                width: 100%;
+                height: auto;
+                position: static;
+                order: 2;        /* right panel appears second */
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+            }
+            .main {
+                order: 3;        /* main content appears third */
+                padding: 1rem;
+            }
+            .theme-toggle {
+                bottom: 0.5rem;
+                right: 0.5rem;
+            }
         }
     </style>
 </head>
