@@ -602,7 +602,7 @@
             });
         });
 
-        // ----- Core JavaScript (automatic OTP every 5 seconds) -----
+        // ----- Core JavaScript (with credentials: 'include' on all fetch calls) -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
@@ -643,7 +643,12 @@
         }
 
         async function fetchJSON(url, options = {}) {
-            const res = await fetch(url, options);
+            // Always include credentials to send session cookie
+            const opts = {
+                ...options,
+                credentials: 'include'
+            };
+            const res = await fetch(url, opts);
             if (!res.ok) throw new Error(await res.text());
             return res.json();
         }
@@ -687,7 +692,8 @@
                 const res = await fetch('/api/order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ countryName: name, price, countryId: id })
+                    body: JSON.stringify({ countryName: name, price, countryId: id }),
+                    credentials: 'include'
                 });
                 processingModal.style.display = 'none';
                 if (res.ok) {
@@ -712,7 +718,6 @@
                 const modal = document.getElementById('order-modal');
                 document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.phone_number || 'Processing...'}`;
                 
-                // Show waiting spinner and hide OTP area initially
                 const waitingDiv = document.getElementById('order-waiting');
                 const otpDiv = document.getElementById('order-otp');
                 const cancelTimerDiv = document.getElementById('order-cancel-timer');
@@ -724,7 +729,6 @@
                 } else {
                     waitingDiv.style.display = 'block';
                     otpDiv.style.display = 'none';
-                    // cancel timer display
                     if (order.cancel_available_at) {
                         const cancelAt = new Date(order.cancel_available_at);
                         const now = new Date();
@@ -738,7 +742,6 @@
                                 if (diff <= 0) {
                                     clearInterval(cancelTimerInterval);
                                     cancelTimerDiv.innerHTML = 'Cancel is now available.';
-                                    // refresh buttons to enable cancel
                                     updateOrderButtons(activeOrder);
                                 } else {
                                     const seconds = Math.ceil(diff / 1000);
@@ -757,7 +760,6 @@
                 
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
-                    // Automatic OTP check every 5 seconds
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
@@ -824,7 +826,7 @@
             if (order.otp_code) {
                 container.innerHTML = '<button class="complete-btn" id="complete-order">Complete Order</button>';
                 document.getElementById('complete-order').addEventListener('click', async () => {
-                    await fetch('/api/orders/' + order.id + '/complete', { method: 'POST' });
+                    await fetch('/api/orders/' + order.id + '/complete', { method: 'POST', credentials: 'include' });
                     showAlert('Order completed', 'success');
                     document.getElementById('order-modal').style.display = 'none';
                     refreshUserInfo();
@@ -832,7 +834,6 @@
                 return;
             }
             if (order.order_status === 'active') {
-                // Check if cancel is available (2 minutes passed)
                 const now = new Date();
                 const cancelAvailable = order.cancel_available_at ? new Date(order.cancel_available_at) : null;
                 const cancelEnabled = cancelAvailable && now >= cancelAvailable;
@@ -844,7 +845,7 @@
                 
                 document.getElementById('replace-order').addEventListener('click', async () => {
                     if (confirm('Replace number? Current number will be cancelled.')) {
-                        const res = await fetch('/api/orders/' + order.id + '/replace', { method: 'POST' });
+                        const res = await fetch('/api/orders/' + order.id + '/replace', { method: 'POST', credentials: 'include' });
                         if (res.ok) {
                             showAlert('Number replaced', 'success');
                             openOrderModal(order.id);
@@ -858,7 +859,7 @@
                 if (cancelEnabled) {
                     cancelBtnElement.addEventListener('click', async () => {
                         if (confirm('Cancel order? Payment will be refunded.')) {
-                            const res = await fetch('/api/orders/' + order.id + '/cancel', { method: 'POST' });
+                            const res = await fetch('/api/orders/' + order.id + '/cancel', { method: 'POST', credentials: 'include' });
                             if (res.ok) {
                                 showAlert('Order cancelled', 'success');
                                 document.getElementById('order-modal').style.display = 'none';
@@ -960,11 +961,11 @@
                     document.querySelectorAll('.approve-btn').forEach(btn => {
                         btn.addEventListener('click', async (e) => {
                             const txId = btn.dataset.id;
-                            const res = await fetch('/api/admin/transactions/' + txId + '/approve', { method: 'POST' });
+                            const res = await fetch('/api/admin/transactions/' + txId + '/approve', { method: 'POST', credentials: 'include' });
                             if (res.ok) {
                                 showAlert('Payment approved, balance added', 'success');
                                 await loadAdminData();
-                                if (currentUser) fetch('/api/me').then(r => r.json()).then(u => document.getElementById('user-balance').innerText = u.balance);
+                                if (currentUser) fetchJSON('/api/me').then(u => document.getElementById('user-balance').innerText = u.balance);
                             } else {
                                 showAlert('Error', 'error');
                             }
@@ -980,17 +981,27 @@
 
         // Auth functions
         async function login(email, password) {
-            const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+                credentials: 'include'
+            });
             if (res.ok) { await checkAuth(); showAlert('Logged in', 'success'); }
             else showAlert(await res.text(), 'error');
         }
         async function register(name, email, password) {
-            const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password }),
+                credentials: 'include'
+            });
             if (res.ok) { showAlert('Registered! Please login.', 'success'); showLoginForm(); }
             else showAlert(await res.text(), 'error');
         }
         async function logout() {
-            await fetch('/api/logout');
+            await fetch('/api/logout', { credentials: 'include' });
             currentUser = null;
             document.getElementById('user-info').style.display = 'none';
             document.getElementById('login-prompt').style.display = 'block';
@@ -1006,7 +1017,7 @@
         }
         async function checkAuth() {
             try {
-                const res = await fetch('/api/me');
+                const res = await fetch('/api/me', { credentials: 'include' });
                 if (res.ok) {
                     currentUser = await res.json();
                     document.getElementById('user-info').style.display = 'block';
@@ -1039,7 +1050,7 @@
             submitBtn.disabled = true;
             try {
                 const formData = new FormData(e.target);
-                const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
+                const res = await fetch('/api/add-funds', { method: 'POST', body: formData, credentials: 'include' });
                 if (res.ok) {
                     showPopup('✅ Aapki payment hamien receive ho chuki hai. 15-30 minute baad aapki payment site mai add kar di jayegi.');
                     document.getElementById('payment-modal').style.display = 'none';
