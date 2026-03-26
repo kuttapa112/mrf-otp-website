@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (SQLite, 10s retry, admin notifications)
+// server.js – MRF OTP Service (with 2‑minute cancellation delay)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -71,7 +71,6 @@ async function initDB() {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
     `);
-    // Insert default admin and test user if they don't exist
     const adminExists = await db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com');
     if (!adminExists) {
         await db.run(
@@ -90,40 +89,22 @@ async function initDB() {
 initDB().catch(console.error);
 
 // ----- Helper functions for database operations -----
-async function findUser(email) {
-    return db.get('SELECT * FROM users WHERE email = ?', email);
-}
-async function findUserById(id) {
-    return db.get('SELECT * FROM users WHERE id = ?', id);
-}
+async function findUser(email) { return db.get('SELECT * FROM users WHERE email = ?', email); }
+async function findUserById(id) { return db.get('SELECT * FROM users WHERE id = ?', id); }
 async function createUser(name, email, password) {
     const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const result = await db.run(
-        'INSERT INTO users (email, password, name, referralCode) VALUES (?, ?, ?, ?)',
-        email, password, name, referralCode
-    );
+    const result = await db.run('INSERT INTO users (email, password, name, referralCode) VALUES (?, ?, ?, ?)', email, password, name, referralCode);
     return result.lastID;
 }
-async function updateUserBalance(userId, newBalance) {
-    await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
-}
-async function addTransaction(userId, userEmail, amount, screenshot) {
-    await db.run(
-        'INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)',
-        userId, userEmail, amount, screenshot
-    );
-}
-async function getPendingTransactions() {
-    return db.all('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC');
-}
+async function updateUserBalance(userId, newBalance) { await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId); }
+async function addTransaction(userId, userEmail, amount, screenshot) { await db.run('INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)', userId, userEmail, amount, screenshot); }
+async function getPendingTransactions() { return db.all('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC'); }
 async function approveTransaction(txId) {
     const tx = await db.get('SELECT * FROM transactions WHERE id = ?', txId);
     if (!tx) return false;
     await db.run('UPDATE transactions SET status = "approved" WHERE id = ?', txId);
     const user = await findUserById(tx.user_id);
-    if (user) {
-        await updateUserBalance(tx.user_id, user.balance + tx.amount);
-    }
+    if (user) await updateUserBalance(tx.user_id, user.balance + tx.amount);
     return true;
 }
 async function addOrder(order) {
@@ -141,27 +122,17 @@ async function addOrder(order) {
     ]);
     return result.lastID;
 }
-async function getOrdersByUser(userId) {
-    return db.all('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', userId);
-}
-async function getOrderById(orderId) {
-    return db.get('SELECT * FROM orders WHERE id = ?', orderId);
-}
+async function getOrdersByUser(userId) { return db.all('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', userId); }
+async function getOrderById(orderId) { return db.get('SELECT * FROM orders WHERE id = ?', orderId); }
 async function updateOrder(orderId, updates) {
     const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
     const values = Object.values(updates);
     values.push(orderId);
     await db.run(`UPDATE orders SET ${fields} WHERE id = ?`, values);
 }
-async function getAllOrders() {
-    return db.all('SELECT * FROM orders ORDER BY id DESC');
-}
-async function updateUserLoginAttempts(userId, attempts) {
-    await db.run('UPDATE users SET login_attempts = ? WHERE id = ?', attempts, userId);
-}
-async function updateUserLastLogin(userId) {
-    await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', userId);
-}
+async function getAllOrders() { return db.all('SELECT * FROM orders ORDER BY id DESC'); }
+async function updateUserLoginAttempts(userId, attempts) { await db.run('UPDATE users SET login_attempts = ? WHERE id = ?', attempts, userId); }
+async function updateUserLastLogin(userId) { await db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', userId); }
 
 // ----- SMSBower configuration -----
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
@@ -183,7 +154,6 @@ const countries = [
 
 function pkrToUsd(pkr) { return parseFloat((pkr / 280).toFixed(2)); }
 
-// Modified retry with 10-second wait between tiers
 async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
     const priceSteps = [];
     for (let i = 0; i < maxAttempts; i++) priceSteps.push((baseUsdPrice * (1 + i * 0.05)).toFixed(2));
@@ -199,31 +169,14 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
                 const parts = resText.split(':');
                 if (parts.length >= 3) return { success: true, activationId: parts[1], phoneNumber: `+${parts[2]}` };
             }
-            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 10000)); // 10 seconds
+            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 15000));
         } catch (err) {
             console.error(`Attempt ${attempt} error:`, err.message);
             if (attempt === maxAttempts) return { success: false, error: err.message };
-            await new Promise(r => setTimeout(r, 10000));
+            await new Promise(r => setTimeout(r, 15000));
         }
     }
     return { success: false, error: 'No number available after all attempts' };
-}
-
-async function checkSmsStatus(activationId) {
-    try {
-        const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
-        const response = await axios.get(url);
-        const resText = response.data;
-        console.log(`SMS check for ${activationId}: ${resText}`);
-        if (resText.startsWith('STATUS_OK:')) {
-            const code = resText.split(':')[1];
-            return { success: true, code };
-        } else if (resText === 'STATUS_WAIT_CODE') return { success: true, waiting: true };
-        return { success: false };
-    } catch (err) {
-        console.error(`SMS check error: ${err.message}`);
-        return { success: false };
-    }
 }
 
 // ========================
@@ -360,6 +313,16 @@ app.post('/api/orders/:orderId/cancel', async (req, res) => {
     if (order.user_id !== user.id) return res.status(403).send('Unauthorized');
     if (order.order_status !== 'active') return res.status(400).send('Cannot cancel now');
     if (order.otp_received) return res.status(400).send('OTP already received, cannot cancel');
+
+    // Prevent cancellation within first 2 minutes
+    const createdAt = new Date(order.created_at);
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+    if (diffMinutes < 2) {
+        const remainingSeconds = Math.ceil((2 - diffMinutes) * 60);
+        return res.status(400).send(`Cannot cancel yet. Please wait ${remainingSeconds} seconds.`);
+    }
+
     try {
         const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
         await axios.get(cancelUrl);
@@ -412,15 +375,26 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (order.otp_received) {
         return res.json({ received: true, code: order.otp_code });
     }
-    if (!order.activation_id) return res.json({ received: false });
-    const smsResult = await checkSmsStatus(order.activation_id);
-    if (smsResult.success && smsResult.code) {
-        await updateOrder(order.id, { otp_received: 1, otp_code: smsResult.code, order_status: 'completed' });
-        return res.json({ received: true, code: smsResult.code });
-    } else if (smsResult.success && smsResult.waiting) {
-        return res.json({ received: false, waiting: true });
-    } else {
-        return res.json({ received: false, error: true });
+    if (!order.activation_id) {
+        return res.json({ received: false, error: 'No activation ID' });
+    }
+    try {
+        const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${order.activation_id}`;
+        const response = await axios.get(url);
+        const resText = response.data;
+        console.log(`[OTP] Order ${order.id}: SMSBower response: ${resText}`);
+        if (resText.startsWith('STATUS_OK:')) {
+            const code = resText.split(':')[1];
+            await updateOrder(order.id, { otp_received: 1, otp_code: code, order_status: 'completed' });
+            return res.json({ received: true, code });
+        } else if (resText === 'STATUS_WAIT_CODE') {
+            return res.json({ received: false, waiting: true });
+        } else {
+            return res.json({ received: false, error: true, raw: resText });
+        }
+    } catch (err) {
+        console.error(`OTP check error: ${err.message}`);
+        return res.json({ received: false, error: true, message: err.message });
     }
 });
 
@@ -436,32 +410,32 @@ app.get('/api/debug/order/:orderId', async (req, res) => {
             const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${order.activation_id}`;
             const response = await axios.get(url);
             rawSmsResponse = response.data;
-        } catch (err) {}
+        } catch (err) {
+            rawSmsResponse = err.message;
+        }
     }
     res.json({ activationId: order.activation_id, rawSmsResponse, order });
 });
 
-// Admin routes
-app.get('/api/admin/orders', async (req, res) => {
+// Admin routes (unchanged)
+function isAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const user = await findUserById(req.session.userId);
+    const user = findUserById(req.session.userId);
     if (user.role !== 'admin') return res.status(403).send('Admin only');
+    next();
+}
+
+app.get('/api/admin/orders', isAdmin, async (req, res) => {
     const allOrders = await getAllOrders();
     res.json(allOrders);
 });
 
-app.get('/api/admin/transactions', async (req, res) => {
-    if (!req.session.userId) return res.status(401).send('Login required');
-    const user = await findUserById(req.session.userId);
-    if (user.role !== 'admin') return res.status(403).send('Admin only');
+app.get('/api/admin/transactions', isAdmin, async (req, res) => {
     const pending = await getPendingTransactions();
     res.json(pending);
 });
 
-app.post('/api/admin/transactions/:txId/approve', async (req, res) => {
-    if (!req.session.userId) return res.status(401).send('Login required');
-    const user = await findUserById(req.session.userId);
-    if (user.role !== 'admin') return res.status(403).send('Admin only');
+app.post('/api/admin/transactions/:txId/approve', isAdmin, async (req, res) => {
     const txId = parseInt(req.params.txId);
     const success = await approveTransaction(txId);
     if (success) res.send('OK');
