@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (plain sqlite3)
+// server.js – MRF OTP Service (plain sqlite3, correct table creation)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -21,81 +21,87 @@ app.use(session({
 
 // ----- Database connection (using sqlite3 directly) -----
 let db;
+
 function initDB() {
     return new Promise((resolve, reject) => {
         db = new sqlite3.Database('./bot_database.db', (err) => {
             if (err) reject(err);
             else {
-                db.run(`
-                    CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email TEXT UNIQUE,
-                        password TEXT,
-                        name TEXT,
-                        balance REAL DEFAULT 0,
-                        role TEXT DEFAULT 'user',
-                        referralCode TEXT,
-                        is_active INTEGER DEFAULT 1,
-                        login_attempts INTEGER DEFAULT 0,
-                        last_login TEXT,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                    );
-                    CREATE TABLE IF NOT EXISTS orders (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
-                        user_email TEXT,
-                        service_type TEXT,
-                        service_name TEXT,
-                        country TEXT,
-                        country_code TEXT,
-                        price REAL,
-                        payment_method TEXT,
-                        payment_status TEXT DEFAULT 'pending',
-                        order_status TEXT DEFAULT 'pending',
-                        phone_number TEXT,
-                        activation_id TEXT,
-                        otp_received INTEGER DEFAULT 0,
-                        otp_code TEXT,
-                        expires_at TEXT,
-                        cancel_available_at TEXT,
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                        completed_at TEXT
-                    );
-                    CREATE TABLE IF NOT EXISTS transactions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
-                        user_email TEXT,
-                        amount REAL,
-                        screenshot TEXT,
-                        status TEXT DEFAULT 'pending',
-                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-                    );
-                `, (err) => {
-                    if (err) reject(err);
-                    else {
-                        // Insert default admin and test user
-                        db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com', (err, row) => {
-                            if (!row) {
-                                db.run('INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
-                                    'admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN');
-                            }
-                            db.get('SELECT id FROM users WHERE email = ?', 'test@test.com', (err, row) => {
+                db.serialize(() => {
+                    db.run(`
+                        CREATE TABLE IF NOT EXISTS users (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            email TEXT UNIQUE,
+                            password TEXT,
+                            name TEXT,
+                            balance REAL DEFAULT 0,
+                            role TEXT DEFAULT 'user',
+                            referralCode TEXT,
+                            is_active INTEGER DEFAULT 1,
+                            login_attempts INTEGER DEFAULT 0,
+                            last_login TEXT,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                        );
+                    `);
+                    db.run(`
+                        CREATE TABLE IF NOT EXISTS orders (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER,
+                            user_email TEXT,
+                            service_type TEXT,
+                            service_name TEXT,
+                            country TEXT,
+                            country_code TEXT,
+                            price REAL,
+                            payment_method TEXT,
+                            payment_status TEXT DEFAULT 'pending',
+                            order_status TEXT DEFAULT 'pending',
+                            phone_number TEXT,
+                            activation_id TEXT,
+                            otp_received INTEGER DEFAULT 0,
+                            otp_code TEXT,
+                            expires_at TEXT,
+                            cancel_available_at TEXT,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            completed_at TEXT
+                        );
+                    `);
+                    db.run(`
+                        CREATE TABLE IF NOT EXISTS transactions (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER,
+                            user_email TEXT,
+                            amount REAL,
+                            screenshot TEXT,
+                            status TEXT DEFAULT 'pending',
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                        );
+                    `, (err) => {
+                        if (err) reject(err);
+                        else {
+                            // Insert default admin and test user if they don't exist
+                            db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com', (err, row) => {
                                 if (!row) {
                                     db.run('INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
-                                        'test@test.com', 'test123', 'Test User', 'user', 'TEST');
+                                        'admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN');
                                 }
-                                resolve();
+                                db.get('SELECT id FROM users WHERE email = ?', 'test@test.com', (err, row) => {
+                                    if (!row) {
+                                        db.run('INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
+                                            'test@test.com', 'test123', 'Test User', 'user', 'TEST');
+                                    }
+                                    resolve(); // all done
+                                });
                             });
-                        });
-                    }
+                        }
+                    });
                 });
             }
         });
     });
 }
-initDB().catch(console.error);
 
-// Helper functions
+// Helper functions (all using Promises)
 function findUser(email) {
     return new Promise((resolve, reject) => {
         db.get('SELECT * FROM users WHERE email = ?', email, (err, row) => {
@@ -234,7 +240,7 @@ function updateUserLastLogin(userId) {
     });
 }
 
-// ----- SMSBower configuration (unchanged) -----
+// ----- SMSBower configuration -----
 const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
@@ -528,9 +534,9 @@ app.get('/api/debug/order/:orderId', async (req, res) => {
 });
 
 // Admin routes
-function isAdmin(req, res, next) {
+async function isAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const user = findUserById(req.session.userId);
+    const user = await findUserById(req.session.userId);
     if (user.role !== 'admin') return res.status(403).send('Admin only');
     next();
 }
@@ -577,5 +583,11 @@ app.post('/api/add-funds', upload.single('screenshot'), async (req, res) => {
 
 app.use('/uploads', express.static('uploads'));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://localhost:${PORT}`));
+// Start server only after database is ready
+initDB().then(() => {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://localhost:${PORT}`));
+}).catch(err => {
+    console.error('Database initialization failed:', err);
+    process.exit(1);
+});
