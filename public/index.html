@@ -36,7 +36,7 @@
             transition: background 0.3s, color 0.3s;
         }
 
-        /* Hamburger button (visible on mobile) */
+        /* Hamburger button (only visible on mobile) */
         .hamburger {
             display: none;
             position: fixed;
@@ -547,7 +547,6 @@
             <div id="order-timer" style="margin:1rem 0;"></div>
             <div id="order-otp"></div>
             <div id="order-buttons" class="button-group"></div>
-            <button id="check-otp-manual" class="check-otp-btn">Check OTP Now</button>
             <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
     </div>
@@ -595,7 +594,7 @@
             });
         });
 
-        // ----- JavaScript (unchanged except payment submission spinner and popup) -----
+        // ----- Core JavaScript (automatic OTP every 5 seconds) -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
@@ -621,7 +620,6 @@
         }
 
         function showPopup(message) {
-            // Remove any existing popup
             const existing = document.querySelector('.custom-popup');
             if (existing) existing.remove();
             const popup = document.createElement('div');
@@ -632,7 +630,6 @@
             `;
             document.body.appendChild(popup);
             popup.querySelector('.popup-close').addEventListener('click', () => popup.remove());
-            // Auto‑remove after 10 seconds
             setTimeout(() => popup.remove(), 10000);
         }
 
@@ -715,7 +712,7 @@
                 modal.style.display = 'flex';
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
-                    // Poll every 5 seconds for OTP
+                    // Automatic OTP check every 5 seconds
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
@@ -916,21 +913,7 @@
             }
         }
 
-        async function manualOtpCheck(orderId) {
-            try {
-                const result = await fetchJSON('/api/orders/' + orderId + '/otp');
-                if (result.received) {
-                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${result.code}</div>`;
-                    updateOrderButtons({ ...activeOrder, otp_code: result.code });
-                    showAlert('OTP received!', 'success');
-                } else {
-                    showAlert('No OTP yet. Still waiting.', 'error');
-                }
-            } catch (err) {
-                showAlert('Error checking OTP', 'error');
-            }
-        }
-
+        // Auth functions
         async function login(email, password) {
             const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
             if (res.ok) { await checkAuth(); showAlert('Logged in', 'success'); }
@@ -1006,7 +989,6 @@
                 submitBtn.disabled = false;
             }
         });
-        document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
         document.getElementById('contact-btn').addEventListener('click', () => {
             if (window.Tawk_API) window.Tawk_API.toggle();
             else showAlert('Chat is loading...', 'info');
