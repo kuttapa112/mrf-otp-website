@@ -36,7 +36,6 @@
             transition: background 0.3s, color 0.3s;
         }
 
-        /* Hamburger button (visible on mobile) */
         .hamburger {
             display: none;
             position: fixed;
@@ -52,7 +51,6 @@
             line-height: 1;
         }
 
-        /* Sidebar – desktop: sticky, part of flex flow; mobile: fixed, hidden by default */
         .sidebar {
             width: 260px;
             background: var(--sidebar-bg);
@@ -67,7 +65,6 @@
             z-index: 1001;
         }
 
-        /* Overlay – only for mobile, dims background behind sidebar */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -367,7 +364,6 @@
             font-size: 1rem;
         }
 
-        /* Custom popup */
         .custom-popup {
             position: fixed;
             bottom: 20px;
@@ -386,10 +382,7 @@
             justify-content: space-between;
             gap: 1rem;
         }
-        .custom-popup p {
-            margin: 0;
-            font-size: 0.9rem;
-        }
+        .custom-popup p { margin: 0; font-size: 0.9rem; }
         .popup-close {
             cursor: pointer;
             font-size: 1.2rem;
@@ -399,11 +392,8 @@
             color: var(--text-color);
         }
 
-        /* Mobile styles */
         @media (max-width: 768px) {
-            .hamburger {
-                display: block;
-            }
+            .hamburger { display: block; }
             .sidebar {
                 position: fixed;
                 top: 0;
@@ -414,15 +404,9 @@
                 box-shadow: 2px 0 8px rgba(0,0,0,0.1);
                 border-right: none;
             }
-            .sidebar.open {
-                transform: translateX(0);
-            }
-            .sidebar-overlay {
-                display: block;
-            }
-            .dashboard {
-                flex-direction: column;
-            }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay { display: block; }
+            .dashboard { flex-direction: column; }
             .right-panel {
                 width: 100%;
                 height: auto;
@@ -432,14 +416,8 @@
                 border-bottom: 1px solid var(--border-color);
                 margin-bottom: 1rem;
             }
-            .main {
-                order: 2;
-                padding: 1rem;
-            }
-            .theme-toggle {
-                bottom: 0.5rem;
-                right: 0.5rem;
-            }
+            .main { order: 2; padding: 1rem; }
+            .theme-toggle { bottom: 0.5rem; right: 0.5rem; }
         }
     </style>
 </head>
@@ -480,10 +458,7 @@
                     <div>PKR</div>
                     <button class="add-money-btn" id="add-money-btn">Add Money</button>
                 </div>
-                <div class="active-orders">
-                    <h4>Active Orders</h4>
-                    <div id="active-orders-list"></div>
-                </div>
+                <div class="active-orders"><h4>Active Orders</h4><div id="active-orders-list"></div></div>
                 <button class="logout-btn" id="logout-btn">Logout</button>
             </div>
             <div id="login-prompt" style="display: block;">
@@ -601,7 +576,7 @@
             });
         });
 
-        // ----- Core JavaScript (automatic OTP every 5 seconds) -----
+        // ----- Core JavaScript -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
@@ -710,7 +685,6 @@
                 const modal = document.getElementById('order-modal');
                 document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.phone_number || 'Processing...'}`;
                 
-                // Show waiting spinner and hide OTP area initially
                 const waitingDiv = document.getElementById('order-waiting');
                 const otpDiv = document.getElementById('order-otp');
                 if (order.otp_code) {
@@ -728,7 +702,6 @@
                 
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
-                    // Automatic OTP check every 5 seconds
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
@@ -785,6 +758,22 @@
             }
         }
 
+        async function cancelOrder(orderId) {
+            try {
+                const res = await fetch('/api/orders/' + orderId + '/cancel', { method: 'POST' });
+                if (res.ok) {
+                    showAlert('Order cancelled and refunded', 'success');
+                    document.getElementById('order-modal').style.display = 'none';
+                    refreshUserInfo();
+                } else {
+                    const err = await res.text();
+                    showAlert(err, 'error');
+                }
+            } catch (err) {
+                showAlert('Error cancelling order', 'error');
+            }
+        }
+
         function updateOrderButtons(order) {
             const container = document.getElementById('order-buttons');
             container.innerHTML = '';
@@ -799,9 +788,20 @@
                 return;
             }
             if (order.order_status === 'active') {
+                // Check if 2 minutes have passed since order creation
+                const createdAt = new Date(order.created_at);
+                const now = new Date();
+                const minutesSince = (now - createdAt) / (1000 * 60);
+                let cancelHtml = '';
+                if (minutesSince >= 2) {
+                    cancelHtml = '<button class="cancel-btn" id="cancel-order">❌ Cancel & Refund</button>';
+                } else {
+                    const remainingSeconds = Math.ceil((2 - minutesSince) * 60);
+                    cancelHtml = `<button class="cancel-btn" id="cancel-order" disabled style="opacity:0.5;">⏳ Cancel (${remainingSeconds}s)</button>`;
+                }
                 container.innerHTML = `
                     <button class="replace-btn" id="replace-order">🔄 Replace Number</button>
-                    <button class="cancel-btn" id="cancel-order">❌ Cancel & Refund</button>
+                    ${cancelHtml}
                 `;
                 document.getElementById('replace-order').addEventListener('click', async () => {
                     if (confirm('Replace number? Current number will be cancelled.')) {
@@ -814,18 +814,14 @@
                         }
                     }
                 });
-                document.getElementById('cancel-order').addEventListener('click', async () => {
-                    if (confirm('Cancel order? Payment will be refunded.')) {
-                        const res = await fetch('/api/orders/' + order.id + '/cancel', { method: 'POST' });
-                        if (res.ok) {
-                            showAlert('Order cancelled', 'success');
-                            document.getElementById('order-modal').style.display = 'none';
-                            refreshUserInfo();
-                        } else {
-                            showAlert(await res.text(), 'error');
+                const cancelBtn = document.getElementById('cancel-order');
+                if (cancelBtn && !cancelBtn.disabled) {
+                    cancelBtn.addEventListener('click', () => {
+                        if (confirm('Cancel order? Payment will be refunded.')) {
+                            cancelOrder(order.id);
                         }
-                    }
-                });
+                    });
+                }
             } else {
                 container.innerHTML = '<p>Order is no longer active.</p>';
             }
