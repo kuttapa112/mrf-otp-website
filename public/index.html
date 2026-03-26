@@ -132,20 +132,44 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            justify-content: flex-start; /* ensures content starts at the top */
         }
-        /* Ensure the login form appears at the top when visible */
-        #login-prompt {
-            display: block; /* default: shown */
+        /* Login form appears at the top */
+        #login-prompt, #user-info {
+            width: 100%;
         }
-        #user-info {
-            display: none; /* default: hidden until login */
+        .auth-container {
+            max-width: 100%;
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        .auth-container input {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-color);
+        }
+        .google-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
         }
         .balance-card {
             background: var(--bg-color);
             border-radius: 20px;
             padding: 1.5rem;
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             border: 1px solid var(--border-color);
         }
         .balance-label { font-size: 0.9rem; color: #64748b; }
@@ -165,7 +189,7 @@
             margin-top: 1rem;
             cursor: pointer;
         }
-        .active-orders { margin-top: 1.5rem; }
+        .active-orders { margin-top: 1rem; }
         .order-item {
             background: var(--bg-color);
             border-radius: 12px;
@@ -282,33 +306,6 @@
             margin-top: 1rem;
         }
 
-        .auth-container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: var(--card-bg);
-            padding: 2rem;
-            border-radius: 24px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            width: 100%;
-        }
-        .auth-container input {
-            width: 100%;
-            padding: 0.75rem;
-            margin: 0.5rem 0;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            color: var(--text-color);
-        }
-        .google-btn {
-            background: white;
-            border: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
         .spinner {
             border: 4px solid rgba(0,0,0,0.1);
             border-radius: 50%;
