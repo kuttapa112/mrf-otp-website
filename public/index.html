@@ -36,6 +36,7 @@
             transition: background 0.3s, color 0.3s;
         }
 
+        /* Hamburger button (visible on mobile) */
         .hamburger {
             display: none;
             position: fixed;
@@ -51,6 +52,7 @@
             line-height: 1;
         }
 
+        /* Sidebar – desktop: sticky, part of flex flow; mobile: fixed, hidden by default */
         .sidebar {
             width: 260px;
             background: var(--sidebar-bg);
@@ -65,6 +67,7 @@
             z-index: 1001;
         }
 
+        /* Overlay – only for mobile, dims background behind sidebar */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -364,6 +367,7 @@
             font-size: 1rem;
         }
 
+        /* Custom popup */
         .custom-popup {
             position: fixed;
             bottom: 20px;
@@ -382,7 +386,10 @@
             justify-content: space-between;
             gap: 1rem;
         }
-        .custom-popup p { margin: 0; font-size: 0.9rem; }
+        .custom-popup p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
         .popup-close {
             cursor: pointer;
             font-size: 1.2rem;
@@ -392,8 +399,11 @@
             color: var(--text-color);
         }
 
+        /* Mobile styles */
         @media (max-width: 768px) {
-            .hamburger { display: block; }
+            .hamburger {
+                display: block;
+            }
             .sidebar {
                 position: fixed;
                 top: 0;
@@ -404,9 +414,15 @@
                 box-shadow: 2px 0 8px rgba(0,0,0,0.1);
                 border-right: none;
             }
-            .sidebar.open { transform: translateX(0); }
-            .sidebar-overlay { display: block; }
-            .dashboard { flex-direction: column; }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar-overlay {
+                display: block;
+            }
+            .dashboard {
+                flex-direction: column;
+            }
             .right-panel {
                 width: 100%;
                 height: auto;
@@ -416,8 +432,14 @@
                 border-bottom: 1px solid var(--border-color);
                 margin-bottom: 1rem;
             }
-            .main { order: 2; padding: 1rem; }
-            .theme-toggle { bottom: 0.5rem; right: 0.5rem; }
+            .main {
+                order: 2;
+                padding: 1rem;
+            }
+            .theme-toggle {
+                bottom: 0.5rem;
+                right: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -458,7 +480,10 @@
                     <div>PKR</div>
                     <button class="add-money-btn" id="add-money-btn">Add Money</button>
                 </div>
-                <div class="active-orders"><h4>Active Orders</h4><div id="active-orders-list"></div></div>
+                <div class="active-orders">
+                    <h4>Active Orders</h4>
+                    <div id="active-orders-list"></div>
+                </div>
                 <button class="logout-btn" id="logout-btn">Logout</button>
             </div>
             <div id="login-prompt" style="display: block;">
@@ -523,6 +548,7 @@
             <h3>Order Details</h3>
             <div id="order-number"></div>
             <div id="order-timer" style="margin:1rem 0;"></div>
+            <div id="order-cancel-timer" style="margin:0.5rem 0; font-size:0.9rem; color:#64748b;"></div>
             <div id="order-waiting" style="display: none;">
                 <div class="big-spinner spinner" style="margin:0 auto 1rem;"></div>
                 <div class="waiting-message">Waiting for OTP...</div>
@@ -576,11 +602,12 @@
             });
         });
 
-        // ----- Core JavaScript -----
+        // ----- Core JavaScript (automatic OTP every 5 seconds) -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
         let timerInterval = null;
+        let cancelTimerInterval = null;
         let adminRefreshInterval = null;
         let lastPendingCount = 0;
         let notificationSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
@@ -685,15 +712,43 @@
                 const modal = document.getElementById('order-modal');
                 document.getElementById('order-number').innerHTML = `<strong>Number:</strong> ${order.phone_number || 'Processing...'}`;
                 
+                // Show waiting spinner and hide OTP area initially
                 const waitingDiv = document.getElementById('order-waiting');
                 const otpDiv = document.getElementById('order-otp');
+                const cancelTimerDiv = document.getElementById('order-cancel-timer');
                 if (order.otp_code) {
                     waitingDiv.style.display = 'none';
                     otpDiv.style.display = 'block';
                     otpDiv.innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${order.otp_code}</div>`;
+                    cancelTimerDiv.style.display = 'none';
                 } else {
                     waitingDiv.style.display = 'block';
                     otpDiv.style.display = 'none';
+                    // cancel timer display
+                    if (order.cancel_available_at) {
+                        const cancelAt = new Date(order.cancel_available_at);
+                        const now = new Date();
+                        if (now < cancelAt) {
+                            cancelTimerDiv.style.display = 'block';
+                            cancelTimerDiv.innerHTML = `Cancel available in: <span id="cancel-countdown">...</span>`;
+                            if (cancelTimerInterval) clearInterval(cancelTimerInterval);
+                            cancelTimerInterval = setInterval(() => {
+                                const now2 = new Date();
+                                const diff = cancelAt - now2;
+                                if (diff <= 0) {
+                                    clearInterval(cancelTimerInterval);
+                                    cancelTimerDiv.innerHTML = 'Cancel is now available.';
+                                    // refresh buttons to enable cancel
+                                    updateOrderButtons(activeOrder);
+                                } else {
+                                    const seconds = Math.ceil(diff / 1000);
+                                    document.getElementById('cancel-countdown').innerText = `${seconds} seconds`;
+                                }
+                            }, 1000);
+                        } else {
+                            cancelTimerDiv.style.display = 'none';
+                        }
+                    }
                 }
                 
                 updateTimerDisplay(order);
@@ -702,6 +757,7 @@
                 
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
+                    // Automatic OTP check every 5 seconds
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
@@ -711,6 +767,8 @@
                                 waitingDiv.style.display = 'none';
                                 otpDiv.style.display = 'block';
                                 otpDiv.innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
+                                if (cancelTimerInterval) clearInterval(cancelTimerInterval);
+                                document.getElementById('order-cancel-timer').style.display = 'none';
                                 updateOrderButtons(updated);
                                 showAlert('OTP received!', 'success');
                                 notificationSound.play().catch(e => console.log('Audio play failed'));
@@ -732,6 +790,8 @@
                                 waitingDiv.style.display = 'none';
                                 otpDiv.style.display = 'block';
                                 otpDiv.innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${updated.otp_code}</div>`;
+                                if (cancelTimerInterval) clearInterval(cancelTimerInterval);
+                                document.getElementById('order-cancel-timer').style.display = 'none';
                                 updateOrderButtons(updated);
                             }
                         } catch (err) {}
@@ -758,22 +818,6 @@
             }
         }
 
-        async function cancelOrder(orderId) {
-            try {
-                const res = await fetch('/api/orders/' + orderId + '/cancel', { method: 'POST' });
-                if (res.ok) {
-                    showAlert('Order cancelled and refunded', 'success');
-                    document.getElementById('order-modal').style.display = 'none';
-                    refreshUserInfo();
-                } else {
-                    const err = await res.text();
-                    showAlert(err, 'error');
-                }
-            } catch (err) {
-                showAlert('Error cancelling order', 'error');
-            }
-        }
-
         function updateOrderButtons(order) {
             const container = document.getElementById('order-buttons');
             container.innerHTML = '';
@@ -788,21 +832,16 @@
                 return;
             }
             if (order.order_status === 'active') {
-                // Check if 2 minutes have passed since order creation
-                const createdAt = new Date(order.created_at);
+                // Check if cancel is available (2 minutes passed)
                 const now = new Date();
-                const minutesSince = (now - createdAt) / (1000 * 60);
-                let cancelHtml = '';
-                if (minutesSince >= 2) {
-                    cancelHtml = '<button class="cancel-btn" id="cancel-order">❌ Cancel & Refund</button>';
-                } else {
-                    const remainingSeconds = Math.ceil((2 - minutesSince) * 60);
-                    cancelHtml = `<button class="cancel-btn" id="cancel-order" disabled style="opacity:0.5;">⏳ Cancel (${remainingSeconds}s)</button>`;
-                }
-                container.innerHTML = `
-                    <button class="replace-btn" id="replace-order">🔄 Replace Number</button>
-                    ${cancelHtml}
-                `;
+                const cancelAvailable = order.cancel_available_at ? new Date(order.cancel_available_at) : null;
+                const cancelEnabled = cancelAvailable && now >= cancelAvailable;
+                
+                let replaceBtn = '<button class="replace-btn" id="replace-order">🔄 Replace Number</button>';
+                let cancelBtn = cancelEnabled ? '<button class="cancel-btn" id="cancel-order">❌ Cancel & Refund</button>' : '<button class="cancel-btn" id="cancel-order" disabled>❌ Cancel (wait 2 min)</button>';
+                
+                container.innerHTML = replaceBtn + cancelBtn;
+                
                 document.getElementById('replace-order').addEventListener('click', async () => {
                     if (confirm('Replace number? Current number will be cancelled.')) {
                         const res = await fetch('/api/orders/' + order.id + '/replace', { method: 'POST' });
@@ -810,15 +849,24 @@
                             showAlert('Number replaced', 'success');
                             openOrderModal(order.id);
                         } else {
-                            showAlert(await res.text(), 'error');
+                            const err = await res.text();
+                            showAlert(err, 'error');
                         }
                     }
                 });
-                const cancelBtn = document.getElementById('cancel-order');
-                if (cancelBtn && !cancelBtn.disabled) {
-                    cancelBtn.addEventListener('click', () => {
+                const cancelBtnElement = document.getElementById('cancel-order');
+                if (cancelEnabled) {
+                    cancelBtnElement.addEventListener('click', async () => {
                         if (confirm('Cancel order? Payment will be refunded.')) {
-                            cancelOrder(order.id);
+                            const res = await fetch('/api/orders/' + order.id + '/cancel', { method: 'POST' });
+                            if (res.ok) {
+                                showAlert('Order cancelled', 'success');
+                                document.getElementById('order-modal').style.display = 'none';
+                                refreshUserInfo();
+                            } else {
+                                const err = await res.text();
+                                showAlert(err, 'error');
+                            }
                         }
                     });
                 }
@@ -950,6 +998,7 @@
             document.getElementById('admin-panel').style.display = 'none';
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
+            if (cancelTimerInterval) clearInterval(cancelTimerInterval);
             if (adminRefreshInterval) {
                 clearInterval(adminRefreshInterval);
                 adminRefreshInterval = null;
@@ -980,7 +1029,7 @@
         document.getElementById('logout-btn').addEventListener('click', logout);
         document.getElementById('add-money-btn').addEventListener('click', () => document.getElementById('payment-modal').style.display = 'flex');
         document.getElementById('close-payment-modal').addEventListener('click', () => document.getElementById('payment-modal').style.display = 'none');
-        document.getElementById('close-order-modal').addEventListener('click', () => { document.getElementById('order-modal').style.display = 'none'; if (otpInterval) clearInterval(otpInterval); if (timerInterval) clearInterval(timerInterval); });
+        document.getElementById('close-order-modal').addEventListener('click', () => { document.getElementById('order-modal').style.display = 'none'; if (otpInterval) clearInterval(otpInterval); if (timerInterval) clearInterval(timerInterval); if (cancelTimerInterval) clearInterval(cancelTimerInterval); });
         document.getElementById('google-signin').addEventListener('click', () => showRegisterForm());
         document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
