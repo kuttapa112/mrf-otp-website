@@ -1,4 +1,4 @@
-// server.js – MRF OTP Service (with 2‑minute cancellation delay)
+// server.js – MRF OTP Service (fixed OTP, 2‑min cancel delay, admin payments)
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -58,6 +58,7 @@ async function initDB() {
             otp_received INTEGER DEFAULT 0,
             otp_code TEXT,
             expires_at TEXT,
+            cancel_available_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             completed_at TEXT
         );
@@ -71,6 +72,7 @@ async function initDB() {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
     `);
+    // Insert default admin and test user if they don't exist
     const adminExists = await db.get('SELECT id FROM users WHERE email = ?', 'admin@mrfotp.com');
     if (!adminExists) {
         await db.run(
@@ -97,7 +99,9 @@ async function createUser(name, email, password) {
     return result.lastID;
 }
 async function updateUserBalance(userId, newBalance) { await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId); }
-async function addTransaction(userId, userEmail, amount, screenshot) { await db.run('INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)', userId, userEmail, amount, screenshot); }
+async function addTransaction(userId, userEmail, amount, screenshot) {
+    await db.run('INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)', userId, userEmail, amount, screenshot);
+}
 async function getPendingTransactions() { return db.all('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC'); }
 async function approveTransaction(txId) {
     const tx = await db.get('SELECT * FROM transactions WHERE id = ?', txId);
@@ -112,13 +116,13 @@ async function addOrder(order) {
         INSERT INTO orders (
             user_id, user_email, service_type, service_name, country, country_code, price,
             payment_method, order_status, phone_number, activation_id,
-            expires_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            expires_at, cancel_available_at, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
         order.user_id, order.user_email, order.service_type, order.service_name,
         order.country, order.country_code, order.price,
         order.payment_method, order.order_status, order.phone_number,
-        order.activation_id, order.expires_at, order.created_at
+        order.activation_id, order.expires_at, order.cancel_available_at, order.created_at
     ]);
     return result.lastID;
 }
@@ -169,14 +173,32 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
                 const parts = resText.split(':');
                 if (parts.length >= 3) return { success: true, activationId: parts[1], phoneNumber: `+${parts[2]}` };
             }
-            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 15000));
+            if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 10000)); // 10 second wait
         } catch (err) {
             console.error(`Attempt ${attempt} error:`, err.message);
             if (attempt === maxAttempts) return { success: false, error: err.message };
-            await new Promise(r => setTimeout(r, 15000));
+            await new Promise(r => setTimeout(r, 10000));
         }
     }
     return { success: false, error: 'No number available after all attempts' };
+}
+
+// ----- OTP check function -----
+async function checkSmsStatus(activationId) {
+    try {
+        const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
+        const response = await axios.get(url);
+        const resText = response.data;
+        console.log(`SMS check for ${activationId}: ${resText}`);
+        if (resText.startsWith('STATUS_OK:')) {
+            const code = resText.split(':')[1];
+            return { success: true, code };
+        } else if (resText === 'STATUS_WAIT_CODE') return { success: true, waiting: true };
+        return { success: false };
+    } catch (err) {
+        console.error(`SMS check error: ${err.message}`);
+        return { success: false };
+    }
 }
 
 // ========================
@@ -244,7 +266,9 @@ app.post('/api/order', async (req, res) => {
     const result = await buyNumberWithRetry(countryId, baseUsdPrice, 3);
     if (!result.success) return res.status(500).send('No number available. Please try again later.');
     await updateUserBalance(user.id, user.balance - price);
-    const expiresAt = new Date(Date.now() + 25 * 60 * 1000).toISOString();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+    const cancelAvailableAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
     const orderId = await addOrder({
         user_id: user.id,
         user_email: user.email,
@@ -258,7 +282,8 @@ app.post('/api/order', async (req, res) => {
         phone_number: result.phoneNumber,
         activation_id: result.activationId,
         expires_at: expiresAt,
-        created_at: new Date().toISOString()
+        cancel_available_at: cancelAvailableAt,
+        created_at: now.toISOString()
     });
     res.json({ id: orderId, number: result.phoneNumber });
 });
@@ -293,14 +318,18 @@ app.post('/api/orders/:orderId/replace', async (req, res) => {
     const baseUsdPrice = pkrToUsd(order.price);
     const result = await buyNumberWithRetry(order.country_id, baseUsdPrice, 3);
     if (!result.success) return res.status(500).send('No number available for replacement');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+    const cancelAvailableAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
     await updateOrder(order.id, {
         phone_number: result.phoneNumber,
         activation_id: result.activationId,
         otp_received: 0,
         otp_code: null,
         order_status: 'active',
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 25 * 60 * 1000).toISOString()
+        created_at: now.toISOString(),
+        expires_at: expiresAt,
+        cancel_available_at: cancelAvailableAt
     });
     res.send('OK');
 });
@@ -313,16 +342,12 @@ app.post('/api/orders/:orderId/cancel', async (req, res) => {
     if (order.user_id !== user.id) return res.status(403).send('Unauthorized');
     if (order.order_status !== 'active') return res.status(400).send('Cannot cancel now');
     if (order.otp_received) return res.status(400).send('OTP already received, cannot cancel');
-
-    // Prevent cancellation within first 2 minutes
-    const createdAt = new Date(order.created_at);
+    // Check 2-minute delay
     const now = new Date();
-    const diffMinutes = (now - createdAt) / (1000 * 60);
-    if (diffMinutes < 2) {
-        const remainingSeconds = Math.ceil((2 - diffMinutes) * 60);
-        return res.status(400).send(`Cannot cancel yet. Please wait ${remainingSeconds} seconds.`);
+    const cancelAvailable = new Date(order.cancel_available_at);
+    if (now < cancelAvailable) {
+        return res.status(400).send(`Please wait ${Math.ceil((cancelAvailable - now) / 1000)} seconds before cancelling.`);
     }
-
     try {
         const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
         await axios.get(cancelUrl);
@@ -375,26 +400,15 @@ app.get('/api/orders/:orderId/otp', async (req, res) => {
     if (order.otp_received) {
         return res.json({ received: true, code: order.otp_code });
     }
-    if (!order.activation_id) {
-        return res.json({ received: false, error: 'No activation ID' });
-    }
-    try {
-        const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${order.activation_id}`;
-        const response = await axios.get(url);
-        const resText = response.data;
-        console.log(`[OTP] Order ${order.id}: SMSBower response: ${resText}`);
-        if (resText.startsWith('STATUS_OK:')) {
-            const code = resText.split(':')[1];
-            await updateOrder(order.id, { otp_received: 1, otp_code: code, order_status: 'completed' });
-            return res.json({ received: true, code });
-        } else if (resText === 'STATUS_WAIT_CODE') {
-            return res.json({ received: false, waiting: true });
-        } else {
-            return res.json({ received: false, error: true, raw: resText });
-        }
-    } catch (err) {
-        console.error(`OTP check error: ${err.message}`);
-        return res.json({ received: false, error: true, message: err.message });
+    if (!order.activation_id) return res.json({ received: false, error: 'No activation ID' });
+    const smsResult = await checkSmsStatus(order.activation_id);
+    if (smsResult.success && smsResult.code) {
+        await updateOrder(order.id, { otp_received: 1, otp_code: smsResult.code, order_status: 'completed' });
+        return res.json({ received: true, code: smsResult.code });
+    } else if (smsResult.success && smsResult.waiting) {
+        return res.json({ received: false, waiting: true });
+    } else {
+        return res.json({ received: false, error: true });
     }
 });
 
@@ -417,25 +431,34 @@ app.get('/api/debug/order/:orderId', async (req, res) => {
     res.json({ activationId: order.activation_id, rawSmsResponse, order });
 });
 
-// Admin routes (unchanged)
+// Admin routes
 function isAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).send('Login required');
-    const user = findUserById(req.session.userId);
+    const user = await findUserById(req.session.userId);
     if (user.role !== 'admin') return res.status(403).send('Admin only');
     next();
 }
 
-app.get('/api/admin/orders', isAdmin, async (req, res) => {
+app.get('/api/admin/orders', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const user = await findUserById(req.session.userId);
+    if (user.role !== 'admin') return res.status(403).send('Admin only');
     const allOrders = await getAllOrders();
     res.json(allOrders);
 });
 
-app.get('/api/admin/transactions', isAdmin, async (req, res) => {
+app.get('/api/admin/transactions', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const user = await findUserById(req.session.userId);
+    if (user.role !== 'admin') return res.status(403).send('Admin only');
     const pending = await getPendingTransactions();
     res.json(pending);
 });
 
-app.post('/api/admin/transactions/:txId/approve', isAdmin, async (req, res) => {
+app.post('/api/admin/transactions/:txId/approve', async (req, res) => {
+    if (!req.session.userId) return res.status(401).send('Login required');
+    const user = await findUserById(req.session.userId);
+    if (user.role !== 'admin') return res.status(403).send('Admin only');
     const txId = parseInt(req.params.txId);
     const success = await approveTransaction(txId);
     if (success) res.send('OK');
