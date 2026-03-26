@@ -342,10 +342,12 @@
             border: 4px solid rgba(0,0,0,0.1);
             border-radius: 50%;
             border-top: 4px solid #22c55e;
-            width: 40px;
-            height: 40px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
-            margin: 0 auto;
+            display: inline-block;
+            margin-left: 0.5rem;
+            vertical-align: middle;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -360,6 +362,38 @@
             cursor: pointer;
             z-index: 100;
             font-size: 1rem;
+        }
+
+        /* Custom popup */
+        .custom-popup {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            min-width: 280px;
+            max-width: 90%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .custom-popup p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        .popup-close {
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: none;
+            border: none;
+            color: var(--text-color);
         }
 
         /* Mobile styles */
@@ -476,7 +510,7 @@
     <div id="processing-modal" class="modal">
         <div class="modal-content" style="text-align:center;">
             <h3>Processing Order</h3>
-            <div class="spinner" style="margin:1rem auto;"></div>
+            <div class="spinner" style="margin:1rem auto; width:40px; height:40px;"></div>
             <p>Searching for the best number...</p>
             <p style="font-size:0.9rem;">This may take up to 30 seconds</p>
         </div>
@@ -499,7 +533,7 @@
             <form id="addFundsForm" enctype="multipart/form-data">
                 <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:12px;">
                 <input type="file" name="screenshot" accept="image/*" required style="margin-top:1rem;">
-                <button type="submit" class="submit-payment-btn" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
+                <button type="submit" id="submit-payment-btn" class="submit-payment-btn" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
             </form>
             <button id="close-payment-modal" style="margin-top:1rem; background:#ef4444; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px;">Cancel</button>
         </div>
@@ -561,7 +595,7 @@
             });
         });
 
-        // ----- Existing JavaScript (unchanged except OTP polling interval changed to 5 seconds) -----
+        // ----- JavaScript (unchanged except payment submission spinner and popup) -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
@@ -584,6 +618,22 @@
             alertDiv.style.zIndex = '1000';
             document.body.appendChild(alertDiv);
             setTimeout(() => alertDiv.remove(), duration);
+        }
+
+        function showPopup(message) {
+            // Remove any existing popup
+            const existing = document.querySelector('.custom-popup');
+            if (existing) existing.remove();
+            const popup = document.createElement('div');
+            popup.className = 'custom-popup';
+            popup.innerHTML = `
+                <p>${message}</p>
+                <button class="popup-close">✕</button>
+            `;
+            document.body.appendChild(popup);
+            popup.querySelector('.popup-close').addEventListener('click', () => popup.remove());
+            // Auto‑remove after 10 seconds
+            setTimeout(() => popup.remove(), 10000);
         }
 
         async function fetchJSON(url, options = {}) {
@@ -934,15 +984,26 @@
         document.getElementById('google-signin').addEventListener('click', () => showRegisterForm());
         document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
-            if (res.ok) {
-                showAlert('Your payment screenshot has been submitted. It will be reviewed within 15‑30 minutes.', 'success', 8000);
-                document.getElementById('payment-modal').style.display = 'none';
-                e.target.reset();
-            } else {
-                const err = await res.text();
-                showAlert(err, 'error');
+            const submitBtn = document.getElementById('submit-payment-btn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = 'Submitting... <span class="spinner"></span>';
+            submitBtn.disabled = true;
+            try {
+                const formData = new FormData(e.target);
+                const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
+                if (res.ok) {
+                    showPopup('✅ Aapki payment hamien receive ho chuki hai. 15-30 minute baad aapki payment site mai add kar di jayegi.');
+                    document.getElementById('payment-modal').style.display = 'none';
+                    e.target.reset();
+                } else {
+                    const err = await res.text();
+                    showAlert(err, 'error');
+                }
+            } catch (err) {
+                showAlert('Error: ' + err.message, 'error');
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
             }
         });
         document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
