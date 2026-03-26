@@ -7,11 +7,13 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* Light theme (default) */
         :root {
             --bg-color: #f0f2f5;
             --text-color: #1e293b;
             --card-bg: #ffffff;
             --border-color: #e2e8f0;
+            --sidebar-bg: #ffffff;
             --hover-bg: #f1f5f9;
             --btn-primary: #22c55e;
             --btn-primary-hover: #16a34a;
@@ -24,6 +26,7 @@
             --text-color: #e2e8f0;
             --card-bg: #1e293b;
             --border-color: #334155;
+            --sidebar-bg: #1e293b;
             --hover-bg: #334155;
         }
 
@@ -32,96 +35,58 @@
             background: var(--bg-color);
             color: var(--text-color);
             transition: background 0.3s, color 0.3s;
-            margin: 0;
-            padding: 0;
         }
 
-        /* Top navbar */
-        .top-nav {
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0.75rem 1.5rem;
+        .dashboard { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
             position: sticky;
             top: 0;
-            z-index: 100;
+            height: 100vh;
+            padding: 2rem 1rem;
         }
-        .logo {
+        .sidebar-header {
             font-size: 1.5rem;
             font-weight: bold;
             color: #22c55e;
-            text-decoration: none;
+            margin-bottom: 2rem;
+            padding-left: 1rem;
         }
-        .menu-icon {
-            font-size: 1.5rem;
-            cursor: pointer;
-            background: none;
-            border: none;
-            color: var(--text-color);
-            display: none;
-        }
-        .nav-links {
+        .sidebar-nav { flex: 1; }
+        .nav-item {
             display: flex;
-            gap: 1.5rem;
             align-items: center;
-        }
-        .nav-links a {
-            color: var(--text-color);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-        .nav-links a:hover { color: #22c55e; }
-        .nav-links button {
-            background: none;
-            border: none;
-            font-weight: 500;
-            cursor: pointer;
-            font-size: 1rem;
-            color: var(--text-color);
-        }
-        .nav-links button:hover { color: #22c55e; }
-
-        /* Mobile menu (hidden by default) */
-        .mobile-menu {
-            display: none;
-            flex-direction: column;
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem;
             gap: 1rem;
-            position: absolute;
-            top: 60px;
-            left: 0;
-            right: 0;
-            z-index: 99;
-        }
-        .mobile-menu a, .mobile-menu button {
-            background: none;
-            border: none;
-            text-align: left;
-            font-size: 1.1rem;
-            padding: 0.5rem 0;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            border-radius: 12px;
             cursor: pointer;
-            color: var(--text-color);
+            transition: background 0.2s;
+            font-weight: 500;
         }
-        .mobile-menu a:hover, .mobile-menu button:hover { color: #22c55e; }
+        .nav-item:hover { background: var(--hover-bg); }
+        .nav-item.active { background: #22c55e; color: white; }
+        .nav-icon { width: 24px; text-align: center; font-size: 1.2rem; }
 
-        /* Main container */
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1.5rem;
+        .main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
         }
 
-        /* Country grid */
         .country-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 1.5rem;
-            margin-top: 2rem;
         }
         .country-card {
             background: var(--card-bg);
@@ -156,21 +121,34 @@
         }
         .buy-btn:hover { background: #16a34a; }
 
-        /* Right panel (balance, orders) */
         .right-panel {
             width: 320px;
+            background: var(--card-bg);
+            border-left: 1px solid var(--border-color);
+            padding: 2rem 1rem;
             position: sticky;
-            top: 80px;
-            align-self: start;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Ensure the login form appears at the top when visible */
+        #login-prompt {
+            display: block; /* default: shown */
+        }
+        #user-info {
+            display: none; /* default: hidden until login */
         }
         .balance-card {
-            background: var(--card-bg);
+            background: var(--bg-color);
             border-radius: 20px;
             padding: 1.5rem;
             text-align: center;
             margin-bottom: 2rem;
             border: 1px solid var(--border-color);
         }
+        .balance-label { font-size: 0.9rem; color: #64748b; }
         .balance-amount {
             font-size: 2.5rem;
             font-weight: bold;
@@ -187,8 +165,9 @@
             margin-top: 1rem;
             cursor: pointer;
         }
+        .active-orders { margin-top: 1.5rem; }
         .order-item {
-            background: var(--card-bg);
+            background: var(--bg-color);
             border-radius: 12px;
             padding: 1rem;
             margin-bottom: 1rem;
@@ -216,7 +195,6 @@
             cursor: pointer;
         }
 
-        /* Admin panel */
         .admin-panel {
             margin-top: 2rem;
             background: var(--card-bg);
@@ -224,6 +202,7 @@
             padding: 1.5rem;
             border: 1px solid var(--border-color);
         }
+        .admin-panel h3 { margin-bottom: 1rem; }
         .transaction-item {
             background: var(--bg-color);
             padding: 1rem;
@@ -250,7 +229,6 @@
             display: inline-block;
         }
 
-        /* Modals */
         .modal {
             display: none;
             position: fixed;
@@ -304,15 +282,14 @@
             margin-top: 1rem;
         }
 
-        /* Login / Register forms */
         .auth-container {
             max-width: 400px;
-            margin: 2rem auto;
+            margin: 0 auto;
             background: var(--card-bg);
             padding: 2rem;
             border-radius: 24px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 1px solid var(--border-color);
+            width: 100%;
         }
         .auth-container input {
             width: 100%;
@@ -331,12 +308,7 @@
             justify-content: center;
             gap: 0.5rem;
             margin-top: 1rem;
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 40px;
-            cursor: pointer;
         }
-
         .spinner {
             border: 4px solid rgba(0,0,0,0.1);
             border-radius: 50%;
@@ -361,62 +333,32 @@
             font-size: 1rem;
         }
 
-        /* Layout */
-        .dashboard {
-            display: flex;
-            gap: 2rem;
-            flex-wrap: wrap;
-        }
-        .main {
-            flex: 1;
-            min-width: 280px;
-        }
+        @media (max-width: 1024px) { .right-panel { width: 280px; } }
         @media (max-width: 768px) {
-            .dashboard {
-                flex-direction: column;
-            }
-            .right-panel {
-                width: 100%;
-                position: static;
-            }
-            .menu-icon {
-                display: block;
-            }
-            .nav-links {
-                display: none;
-            }
+            .dashboard { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-evenly; padding: 1rem; }
+            .right-panel { width: 100%; height: auto; position: static; }
+            .theme-toggle { bottom: 0.5rem; right: 0.5rem; }
         }
     </style>
 </head>
 <body>
-    <div class="top-nav">
-        <a href="#" class="logo">MRF Portal</a>
-        <div class="nav-links" id="desktop-nav">
-            <a href="#" id="home-link">Home</a>
-            <a href="#" id="dashboard-link">Dashboard</a>
-            <a href="#" id="wallet-link">Wallet</a>
-            <a href="#" id="orders-link">Orders</a>
-            <button id="admin-link">Admin</button>
-            <button id="logout-link">Logout</button>
-            <button id="contact-link">💬 Contact</button>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">MRF Portal</div>
+            <div class="sidebar-nav">
+                <div class="nav-item active" data-service="whatsapp">
+                    <span class="nav-icon">📱</span>
+                    <span>WhatsApp</span>
+                </div>
+                <div class="nav-item" id="contact-btn" style="margin-top: auto;">
+                    <span class="nav-icon">💬</span>
+                    <span>Contact</span>
+                </div>
+            </div>
         </div>
-        <button class="menu-icon" id="menu-btn">☰</button>
-    </div>
-    <div class="mobile-menu" id="mobile-menu">
-        <a href="#" id="mobile-home">Home</a>
-        <a href="#" id="mobile-dashboard">Dashboard</a>
-        <a href="#" id="mobile-wallet">Wallet</a>
-        <a href="#" id="mobile-orders">Orders</a>
-        <button id="mobile-admin">Admin</button>
-        <button id="mobile-logout">Logout</button>
-        <button id="mobile-contact">💬 Contact</button>
-    </div>
 
-    <div class="container">
-        <div id="alert" class="alert" style="display:none;"></div>
-
-        <!-- Home page (country grid) -->
-        <div id="home-page">
+        <div class="main">
             <div class="section-title">Available WhatsApp Numbers</div>
             <div class="country-grid" id="country-list"></div>
             <div id="admin-panel" class="admin-panel" style="display: none;">
@@ -426,66 +368,38 @@
             </div>
         </div>
 
-        <!-- Dashboard page -->
-        <div id="dashboard-page" style="display: none;">
-            <div class="dashboard">
-                <div class="main">
-                    <h2>Welcome, <span id="user-name"></span></h2>
-                    <div class="balance-card" style="margin-top:1rem;">
-                        <div>Your Balance</div>
-                        <div class="balance-amount" id="user-balance">0</div>
-                        <div>PKR</div>
-                        <button class="add-money-btn" id="add-money-btn">Add Money</button>
+        <div class="right-panel">
+            <!-- User info section (shown when logged in) -->
+            <div id="user-info" style="display: none;">
+                <div class="balance-card">
+                    <div class="balance-label">Your Balance</div>
+                    <div class="balance-amount" id="user-balance">0</div>
+                    <div>PKR</div>
+                    <button class="add-money-btn" id="add-money-btn">Add Money</button>
+                </div>
+                <div class="active-orders"><h4>Active Orders</h4><div id="active-orders-list"></div></div>
+                <button class="logout-btn" id="logout-btn">Logout</button>
+            </div>
+            <!-- Login/Signup section (shown when logged out) -->
+            <div id="login-prompt" style="display: block;">
+                <div class="auth-container">
+                    <h3>Login</h3>
+                    <input type="email" id="login-email" placeholder="Email">
+                    <input type="password" id="login-password" placeholder="Password">
+                    <button id="login-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Login</button>
+                    <button id="google-signin" class="google-btn">🔐 Sign in with Google</button>
+                    <p style="margin-top:1rem; text-align:center;">No account? <a href="#" id="show-register">Sign up</a></p>
+                </div>
+                <div id="register-form" style="display:none;">
+                    <div class="auth-container">
+                        <h3>Sign Up</h3>
+                        <input type="text" id="reg-name" placeholder="Full Name">
+                        <input type="email" id="reg-email" placeholder="Email">
+                        <input type="password" id="reg-password" placeholder="Password">
+                        <button id="register-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Register</button>
+                        <p style="margin-top:1rem; text-align:center;">Already have an account? <a href="#" id="show-login">Login</a></p>
                     </div>
                 </div>
-                <div class="right-panel">
-                    <div class="active-orders"><h4>Active Orders</h4><div id="active-orders-list"></div></div>
-                    <button class="logout-btn" id="logout-btn-mobile">Logout</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Wallet page -->
-        <div id="wallet-page" style="display: none;">
-            <h2>Add Funds</h2>
-            <div class="payment-info">
-                <p><strong>We only accept SadaPay payments</strong></p>
-                <p>Minimum deposit: 150 PKR</p>
-                <p>Account Number: <strong>03439898333</strong></p>
-                <p>Account Name: <strong>Nihayat</strong></p>
-            </div>
-            <form id="addFundsForm" enctype="multipart/form-data">
-                <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required>
-                <input type="file" name="screenshot" accept="image/*" required>
-                <button type="submit" id="submit-payment-btn">Submit Payment</button>
-                <div id="payment-spinner" class="spinner" style="display:none; margin-top:1rem;"></div>
-                <p id="payment-message" style="margin-top:1rem; font-size:0.9rem; color:#fbbf24;"></p>
-            </form>
-        </div>
-
-        <!-- Orders page -->
-        <div id="orders-page" style="display: none;">
-            <h2>My Orders</h2>
-            <div id="orders-list"></div>
-        </div>
-
-        <!-- Login/Register forms (centered) -->
-        <div id="login-prompt" style="display: block;">
-            <div class="auth-container" id="login-form-container">
-                <h3>Login</h3>
-                <input type="email" id="login-email" placeholder="Email">
-                <input type="password" id="login-password" placeholder="Password">
-                <button id="login-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Login</button>
-                <button id="google-signin" class="google-btn">🔐 Sign in with Google</button>
-                <p style="margin-top:1rem; text-align:center;">No account? <a href="#" id="show-register">Sign up</a></p>
-            </div>
-            <div id="register-form" class="auth-container" style="display:none;">
-                <h3>Sign Up</h3>
-                <input type="text" id="reg-name" placeholder="Full Name">
-                <input type="email" id="reg-email" placeholder="Email">
-                <input type="password" id="reg-password" placeholder="Password">
-                <button id="register-btn" style="width:100%; background:#22c55e; color:white; padding:0.75rem; border:none; border-radius:40px;">Register</button>
-                <p style="margin-top:1rem; text-align:center;">Already have an account? <a href="#" id="show-login">Login</a></p>
             </div>
         </div>
     </div>
@@ -510,12 +424,12 @@
                 <p>Account Number: <strong>03439898333</strong></p>
                 <p>Account Name: <strong>Nihayat</strong></p>
             </div>
-            <form id="addFundsFormModal" enctype="multipart/form-data">
-                <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required>
-                <input type="file" name="screenshot" accept="image/*" required>
-                <button type="submit">Submit Payment</button>
+            <form id="addFundsForm" enctype="multipart/form-data">
+                <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:12px;">
+                <input type="file" name="screenshot" accept="image/*" required style="margin-top:1rem;">
+                <button type="submit" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
             </form>
-            <button id="close-payment-modal">Cancel</button>
+            <button id="close-payment-modal" style="margin-top:1rem;">Cancel</button>
         </div>
     </div>
 
@@ -528,13 +442,14 @@
             <div id="order-otp"></div>
             <div id="order-buttons" class="button-group"></div>
             <button id="check-otp-manual" class="check-otp-btn">Check OTP Now</button>
-            <button id="close-order-modal">Close</button>
+            <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
     </div>
 
+    <!-- Theme Toggle -->
     <div class="theme-toggle" id="theme-toggle">🌓 Light/Dark</div>
 
-    <!-- Tawk.to Script -->
+    <!-- Tawk.to Live Chat Script -->
     <script type="text/javascript">
         var Tawk_API = Tawk_API || {};
         var Tawk_LoadStart = new Date();
@@ -559,11 +474,19 @@
         let notificationSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
 
         function showAlert(msg, type) {
-            const alertDiv = document.getElementById('alert');
+            const alertDiv = document.createElement('div');
             alertDiv.textContent = msg;
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.style.display = 'block';
-            setTimeout(() => alertDiv.style.display = 'none', 5000);
+            alertDiv.style.position = 'fixed';
+            alertDiv.style.bottom = '20px';
+            alertDiv.style.left = '50%';
+            alertDiv.style.transform = 'translateX(-50%)';
+            alertDiv.style.backgroundColor = type === 'error' ? '#ef4444' : '#22c55e';
+            alertDiv.style.color = 'white';
+            alertDiv.style.padding = '0.75rem 1.5rem';
+            alertDiv.style.borderRadius = '40px';
+            alertDiv.style.zIndex = '1000';
+            document.body.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
         }
 
         async function fetchJSON(url, options = {}) {
@@ -880,8 +803,10 @@
             document.getElementById('admin-panel').style.display = 'none';
             if (otpInterval) clearInterval(otpInterval);
             if (timerInterval) clearInterval(timerInterval);
-            if (adminRefreshInterval) clearInterval(adminRefreshInterval);
-            adminRefreshInterval = null;
+            if (adminRefreshInterval) {
+                clearInterval(adminRefreshInterval);
+                adminRefreshInterval = null;
+            }
         }
         async function checkAuth() {
             try {
@@ -897,163 +822,51 @@
                 }
             } catch (err) { console.error(err); }
         }
-        function showLoginForm() { document.getElementById('register-form').style.display = 'none'; document.getElementById('login-form-container').style.display = 'block'; }
-        function showRegisterForm() { document.getElementById('login-form-container').style.display = 'none'; document.getElementById('register-form').style.display = 'block'; }
+        function showLoginForm() { document.getElementById('register-form').style.display = 'none'; document.querySelector('#login-prompt .auth-container').style.display = 'block'; }
+        function showRegisterForm() { document.querySelector('#login-prompt .auth-container').style.display = 'none'; document.getElementById('register-form').style.display = 'block'; }
 
-        // Navigation helpers
-        function showPage(page) {
-            document.getElementById('home-page').style.display = 'none';
-            document.getElementById('dashboard-page').style.display = 'none';
-            document.getElementById('wallet-page').style.display = 'none';
-            document.getElementById('orders-page').style.display = 'none';
-            if (page === 'home') document.getElementById('home-page').style.display = 'block';
-            if (page === 'dashboard') document.getElementById('dashboard-page').style.display = 'block';
-            if (page === 'wallet') document.getElementById('wallet-page').style.display = 'block';
-            if (page === 'orders') { document.getElementById('orders-page').style.display = 'block'; loadOrders(); }
-        }
-
-        async function loadOrders() {
-            if (!currentUser) return;
-            try {
-                const orders = await fetchJSON('/api/orders');
-                const container = document.getElementById('orders-list');
-                if (!orders.length) {
-                    container.innerHTML = '<p>No orders yet.</p>';
-                    return;
-                }
-                container.innerHTML = orders.map(o => `
-                    <div class="order-item">
-                        <strong>${o.country}</strong> - ${o.price} PKR<br>
-                        Status: <span class="status-${o.order_status}">${o.order_status}</span><br>
-                        Number: ${o.phone_number || 'Pending'}<br>
-                        SMS Code: ${o.otp_code || 'Not received yet'}<br>
-                        <button onclick="viewOrder(${o.id})">View Details</button>
-                    </div>
-                `).join('');
-            } catch (err) {
-                console.error('loadOrders error:', err);
-            }
-        }
-
-        // Wallet page spinner and message
-        document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const submitBtn = document.getElementById('submit-payment-btn');
-            const spinner = document.getElementById('payment-spinner');
-            const msgDiv = document.getElementById('payment-message');
-            submitBtn.disabled = true;
-            spinner.style.display = 'block';
-            msgDiv.textContent = 'Submitting...';
-            const formData = new FormData(e.target);
-            try {
-                const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
-                if (res.ok) {
-                    msgDiv.textContent = '✅ Payment submitted. It will be reviewed within 15 minutes.';
-                    e.target.reset();
-                } else {
-                    const err = await res.text();
-                    msgDiv.textContent = '❌ Error: ' + err;
-                }
-            } catch (err) {
-                msgDiv.textContent = '❌ Network error. Please try again.';
-            } finally {
-                submitBtn.disabled = false;
-                spinner.style.display = 'none';
-                setTimeout(() => msgDiv.textContent = '', 5000);
-            }
-        });
-
-        // Event listeners for desktop and mobile menus
-        const desktopLinks = {
-            home: document.getElementById('home-link'),
-            dashboard: document.getElementById('dashboard-link'),
-            wallet: document.getElementById('wallet-link'),
-            orders: document.getElementById('orders-link'),
-            admin: document.getElementById('admin-link'),
-            logout: document.getElementById('logout-link'),
-            contact: document.getElementById('contact-link')
-        };
-        const mobileLinks = {
-            home: document.getElementById('mobile-home'),
-            dashboard: document.getElementById('mobile-dashboard'),
-            wallet: document.getElementById('mobile-wallet'),
-            orders: document.getElementById('mobile-orders'),
-            admin: document.getElementById('mobile-admin'),
-            logout: document.getElementById('mobile-logout'),
-            contact: document.getElementById('mobile-contact')
-        };
-        const mobileMenu = document.getElementById('mobile-menu');
-        const menuBtn = document.getElementById('menu-btn');
-        menuBtn.addEventListener('click', () => {
-            mobileMenu.style.display = mobileMenu.style.display === 'flex' ? 'none' : 'flex';
-        });
-        // Close menu when clicking a link
-        const closeMenu = () => mobileMenu.style.display = 'none';
-
-        for (let key in desktopLinks) {
-            if (desktopLinks[key]) {
-                desktopLinks[key].addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (key === 'home') showPage('home');
-                    else if (key === 'dashboard') showPage('dashboard');
-                    else if (key === 'wallet') showPage('wallet');
-                    else if (key === 'orders') showPage('orders');
-                    else if (key === 'admin') showAdminPanel();
-                    else if (key === 'logout') logout();
-                    else if (key === 'contact') { if (window.Tawk_API) window.Tawk_API.toggle(); else showAlert('Chat is loading...', 'info'); }
-                });
-            }
-        }
-        for (let key in mobileLinks) {
-            if (mobileLinks[key]) {
-                mobileLinks[key].addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (key === 'home') showPage('home');
-                    else if (key === 'dashboard') showPage('dashboard');
-                    else if (key === 'wallet') showPage('wallet');
-                    else if (key === 'orders') showPage('orders');
-                    else if (key === 'admin') showAdminPanel();
-                    else if (key === 'logout') logout();
-                    else if (key === 'contact') { if (window.Tawk_API) window.Tawk_API.toggle(); else showAlert('Chat is loading...', 'info'); }
-                    closeMenu();
-                });
-            }
-        }
-
-        function showAdminPanel() {
-            if (currentUser && currentUser.role === 'admin') {
-                showPage('home');
-                document.getElementById('admin-panel').style.display = 'block';
-                loadAdminData();
-            } else {
-                showAlert('Admin access only', 'error');
-            }
-        }
-
-        document.getElementById('login-btn').addEventListener('click', () => {
-            login(document.getElementById('login-email').value, document.getElementById('login-password').value);
-        });
-        document.getElementById('register-btn').addEventListener('click', () => {
-            register(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value);
-        });
+        // Event listeners
+        document.getElementById('login-btn').addEventListener('click', () => login(document.getElementById('login-email').value, document.getElementById('login-password').value));
+        document.getElementById('register-btn').addEventListener('click', () => register(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value));
         document.getElementById('show-register').addEventListener('click', (e) => { e.preventDefault(); showRegisterForm(); });
         document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
-        document.getElementById('google-signin').addEventListener('click', () => showRegisterForm());
-
+        document.getElementById('logout-btn').addEventListener('click', logout);
+        document.getElementById('add-money-btn').addEventListener('click', () => document.getElementById('payment-modal').style.display = 'flex');
         document.getElementById('close-payment-modal').addEventListener('click', () => document.getElementById('payment-modal').style.display = 'none');
-        document.getElementById('close-order-modal').addEventListener('click', () => {
-            document.getElementById('order-modal').style.display = 'none';
-            if (otpInterval) clearInterval(otpInterval);
-            if (timerInterval) clearInterval(timerInterval);
+        document.getElementById('close-order-modal').addEventListener('click', () => { document.getElementById('order-modal').style.display = 'none'; if (otpInterval) clearInterval(otpInterval); if (timerInterval) clearInterval(timerInterval); });
+        document.getElementById('google-signin').addEventListener('click', () => showRegisterForm());
+        document.getElementById('addFundsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
+            if (res.ok) { showAlert('Payment screenshot submitted. It will be reviewed soon.', 'success'); document.getElementById('payment-modal').style.display = 'none'; e.target.reset(); }
+            else { const err = await res.text(); showAlert(err, 'error'); }
         });
         document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
+        document.getElementById('contact-btn').addEventListener('click', () => {
+            if (window.Tawk_API) window.Tawk_API.toggle();
+            else showAlert('Chat is loading...', 'info');
+        });
 
+        // Theme toggle
         const themeToggle = document.getElementById('theme-toggle');
         themeToggle.addEventListener('click', () => {
             document.body.classList.toggle('dark');
             localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
         });
         if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+
+        // Sidebar service selection (only for WhatsApp)
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.id !== 'contact-btn') {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    loadCountries();
+                    document.querySelector('.section-title').innerText = `Available ${item.querySelector('span:last-child').innerText} Numbers`;
+                });
+            }
+        });
 
         loadCountries();
         checkAuth();
