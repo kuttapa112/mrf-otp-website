@@ -367,7 +367,6 @@
             .hamburger {
                 display: block;
             }
-            /* Sidebar becomes fixed, hidden initially */
             .sidebar {
                 position: fixed;
                 top: 0;
@@ -384,7 +383,6 @@
             .sidebar-overlay {
                 display: block;
             }
-            /* Reorder: right panel first, then main content */
             .dashboard {
                 flex-direction: column;
             }
@@ -488,6 +486,10 @@
     <div id="payment-modal" class="modal">
         <div class="modal-content">
             <h3>Add Funds</h3>
+            <div class="payment-info" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                <span style="font-size: 1.5rem;">🏦</span>
+                <span><strong>SadaPay</strong></span>
+            </div>
             <div class="payment-info">
                 <p><strong>We only accept SadaPay payments</strong></p>
                 <p>Minimum deposit: 150 PKR</p>
@@ -497,9 +499,9 @@
             <form id="addFundsForm" enctype="multipart/form-data">
                 <input type="number" name="amount" placeholder="Amount (min 150)" min="150" required style="width:100%; padding:0.75rem; border:1px solid var(--border-color); border-radius:12px;">
                 <input type="file" name="screenshot" accept="image/*" required style="margin-top:1rem;">
-                <button type="submit" class="submit-payment-btn">Submit Payment</button>
+                <button type="submit" class="submit-payment-btn" style="background:#22c55e; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px; margin-top:1rem;">Submit Payment</button>
             </form>
-            <button id="close-payment-modal" style="margin-top:1rem;">Cancel</button>
+            <button id="close-payment-modal" style="margin-top:1rem; background:#ef4444; color:white; border:none; width:100%; padding:0.75rem; border-radius:40px;">Cancel</button>
         </div>
     </div>
 
@@ -559,7 +561,7 @@
             });
         });
 
-        // ----- REST OF YOUR JAVASCRIPT (identical to previous version) -----
+        // ----- Existing JavaScript (unchanged except OTP polling interval changed to 5 seconds) -----
         let currentUser = null;
         let activeOrder = null;
         let otpInterval = null;
@@ -568,7 +570,7 @@
         let lastPendingCount = 0;
         let notificationSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
 
-        function showAlert(msg, type) {
+        function showAlert(msg, type, duration = 5000) {
             const alertDiv = document.createElement('div');
             alertDiv.textContent = msg;
             alertDiv.style.position = 'fixed';
@@ -581,7 +583,7 @@
             alertDiv.style.borderRadius = '40px';
             alertDiv.style.zIndex = '1000';
             document.body.appendChild(alertDiv);
-            setTimeout(() => alertDiv.remove(), 5000);
+            setTimeout(() => alertDiv.remove(), duration);
         }
 
         async function fetchJSON(url, options = {}) {
@@ -663,6 +665,7 @@
                 modal.style.display = 'flex';
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
+                    // Poll every 5 seconds for OTP
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
@@ -675,7 +678,7 @@
                                 notificationSound.play().catch(e => console.log('Audio play failed'));
                             }
                         } catch (err) {}
-                    }, 3000);
+                    }, 5000);
                 }
                 if (timerInterval) clearInterval(timerInterval);
                 timerInterval = setInterval(async () => {
@@ -933,8 +936,14 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const res = await fetch('/api/add-funds', { method: 'POST', body: formData });
-            if (res.ok) { showAlert('Payment screenshot submitted. It will be reviewed soon.', 'success'); document.getElementById('payment-modal').style.display = 'none'; e.target.reset(); }
-            else { const err = await res.text(); showAlert(err, 'error'); }
+            if (res.ok) {
+                showAlert('Your payment screenshot has been submitted. It will be reviewed within 15‑30 minutes.', 'success', 8000);
+                document.getElementById('payment-modal').style.display = 'none';
+                e.target.reset();
+            } else {
+                const err = await res.text();
+                showAlert(err, 'error');
+            }
         });
         document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
         document.getElementById('contact-btn').addEventListener('click', () => {
