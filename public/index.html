@@ -328,6 +328,15 @@
         .replace-btn { background: #fbbf24; color: black; }
         .cancel-btn { background: #ef4444; color: white; }
         .complete-btn { background: #22c55e; color: white; }
+        .check-otp-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
 
         .spinner {
             border: 4px solid rgba(0,0,0,0.1);
@@ -555,6 +564,7 @@
             </div>
             <div id="order-otp" style="display: none;"></div>
             <div id="order-buttons" class="button-group"></div>
+            <button id="check-otp-manual" class="check-otp-btn">Check OTP Now</button>
             <button id="close-order-modal" style="margin-top:1rem;">Close</button>
         </div>
     </div>
@@ -643,11 +653,7 @@
         }
 
         async function fetchJSON(url, options = {}) {
-            // Always include credentials to send session cookie
-            const opts = {
-                ...options,
-                credentials: 'include'
-            };
+            const opts = { ...options, credentials: 'include' };
             const res = await fetch(url, opts);
             if (!res.ok) throw new Error(await res.text());
             return res.json();
@@ -760,6 +766,7 @@
                 
                 if (order.order_status === 'active' && !order.otp_code) {
                     if (otpInterval) clearInterval(otpInterval);
+                    // Automatic OTP check every 5 seconds
                     otpInterval = setInterval(async () => {
                         try {
                             const updated = await fetchJSON('/api/orders/' + order.id);
@@ -873,6 +880,23 @@
                 }
             } else {
                 container.innerHTML = '<p>Order is no longer active.</p>';
+            }
+        }
+
+        async function manualOtpCheck(orderId) {
+            try {
+                const result = await fetchJSON('/api/orders/' + orderId + '/otp');
+                if (result.received) {
+                    document.getElementById('order-otp').innerHTML = `<div style="background:#fbbf24; padding:0.5rem; border-radius:8px;">OTP: ${result.code}</div>`;
+                    document.getElementById('order-waiting').style.display = 'none';
+                    document.getElementById('order-otp').style.display = 'block';
+                    updateOrderButtons({ ...activeOrder, otp_code: result.code });
+                    showAlert('OTP received!', 'success');
+                } else {
+                    showAlert('No OTP yet. Still waiting.', 'error');
+                }
+            } catch (err) {
+                showAlert('Error checking OTP', 'error');
             }
         }
 
@@ -1066,6 +1090,7 @@
                 submitBtn.disabled = false;
             }
         });
+        document.getElementById('check-otp-manual').addEventListener('click', async () => { if (activeOrder) await manualOtpCheck(activeOrder.id); });
         document.getElementById('contact-btn').addEventListener('click', () => {
             if (window.Tawk_API) window.Tawk_API.toggle();
             else showAlert('Chat is loading...', 'info');
