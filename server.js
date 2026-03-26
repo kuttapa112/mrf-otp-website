@@ -3,182 +3,213 @@ const session = require('express-session');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production'
+        ? { rejectUnauthorized: false }
+        : false
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
+
 app.use(session({
-    secret: 'mrfotp_secret_key_2024',
+    store: new pgSession({
+        pool,
+        tableName: 'user_sessions',
+        createTableIfMissing: true
+    }),
+    secret: process.env.SESSION_SECRET || 'change_this_session_secret',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false, httpOnly: true, sameSite: 'lax' }
+    saveUninitialized: false,
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24 * 7
+    }
 }));
 
-let db;
-
-function runQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function (err) {
-            if (err) reject(err);
-            else resolve(this);
-        });
-    });
+function normalizeUser(row) {
+    if (!row) return null;
+    return {
+        ...row,
+        balance: Number(row.balance || 0),
+        referralCode: row.referral_code,
+        is_active: row.is_active,
+        login_attempts: row.login_attempts
+    };
 }
 
-function getQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.get(sql, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+function normalizeOrder(row) {
+    if (!row) return null;
+    return {
+        ...row,
+        price: Number(row.price || 0),
+        otp_received: row.otp_received
+    };
 }
 
-function allQuery(sql, params = []) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
+async function queryOne(sql, params = []) {
+    const result = await pool.query(sql, params);
+    return result.rows[0] || null;
+}
+
+async function queryAll(sql, params = []) {
+    const result = await pool.query(sql, params);
+    return result.rows;
+}
+
+async function queryRun(sql, params = []) {
+    return pool.query(sql, params);
 }
 
 async function initDB() {
-    db = await new Promise((resolve, reject) => {
-        const database = new sqlite3.Database('./bot_database.db', (err) => {
-            if (err) reject(err);
-            else resolve(database);
-        });
-    });
-
-    await runQuery(`
+    await queryRun(`
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE,
-            password TEXT,
+            id SERIAL PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
             name TEXT,
-            balance REAL DEFAULT 0,
+            balance NUMERIC(12,2) DEFAULT 0,
             role TEXT DEFAULT 'user',
-            referralCode TEXT,
-            is_active INTEGER DEFAULT 1,
+            referral_code TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
             login_attempts INTEGER DEFAULT 0,
-            last_login TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            last_login TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    await runQuery(`
+    await queryRun(`
         CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
             user_email TEXT,
             service_type TEXT,
             service_name TEXT,
             country TEXT,
             country_code TEXT,
             country_id INTEGER,
-            price REAL,
+            price NUMERIC(12,2),
             payment_method TEXT,
             payment_status TEXT DEFAULT 'pending',
             order_status TEXT DEFAULT 'pending',
             phone_number TEXT,
             activation_id TEXT,
-            otp_received INTEGER DEFAULT 0,
+            otp_received BOOLEAN DEFAULT FALSE,
             otp_code TEXT,
-            expires_at TEXT,
-            cancel_available_at TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT
+            expires_at TIMESTAMPTZ,
+            cancel_available_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMPTZ
         )
     `);
 
-    try {
-        await runQuery(`ALTER TABLE orders ADD COLUMN country_id INTEGER`);
-    } catch (_) {}
-
-    await runQuery(`
+    await queryRun(`
         CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
             user_email TEXT,
-            amount REAL,
+            amount NUMERIC(12,2),
             screenshot TEXT,
             status TEXT DEFAULT 'pending',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    const admin = await getQuery('SELECT id FROM users WHERE email = ?', ['admin@mrfotp.com']);
+    const admin = normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', ['admin@mrfotp.com']));
     if (!admin) {
-        await runQuery(
-            'INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
+        await queryRun(
+            'INSERT INTO users (email, password, name, role, referral_code) VALUES ($1, $2, $3, $4, $5)',
             ['admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN']
         );
     }
 
-    const testUser = await getQuery('SELECT id FROM users WHERE email = ?', ['test@test.com']);
+    const testUser = normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', ['test@test.com']));
     if (!testUser) {
-        await runQuery(
-            'INSERT INTO users (email, password, name, role, referralCode) VALUES (?, ?, ?, ?, ?)',
+        await queryRun(
+            'INSERT INTO users (email, password, name, role, referral_code) VALUES ($1, $2, $3, $4, $5)',
             ['test@test.com', 'test123', 'Test User', 'user', 'TEST']
         );
     }
 }
 
-function findUser(email) {
-    return getQuery('SELECT * FROM users WHERE email = ?', [email]);
+async function findUser(email) {
+    return normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', [email]));
 }
 
-function findUserById(id) {
-    return getQuery('SELECT * FROM users WHERE id = ?', [id]);
+async function findUserById(id) {
+    return normalizeUser(await queryOne('SELECT * FROM users WHERE id = $1', [id]));
 }
 
-function createUser(name, email, password) {
+async function createUser(name, email, password) {
     const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-    return runQuery(
-        'INSERT INTO users (email, password, name, referralCode) VALUES (?, ?, ?, ?)',
+    return queryRun(
+        'INSERT INTO users (email, password, name, referral_code) VALUES ($1, $2, $3, $4)',
         [email, password, name, referralCode]
     );
 }
 
-function updateUserBalance(userId, newBalance) {
-    return runQuery('UPDATE users SET balance = ? WHERE id = ?', [newBalance, userId]);
+async function updateUserBalance(userId, newBalance) {
+    return queryRun('UPDATE users SET balance = $1 WHERE id = $2', [newBalance, userId]);
 }
 
-function addTransaction(userId, userEmail, amount, screenshot) {
-    return runQuery(
-        'INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES (?, ?, ?, ?)',
+async function addTransaction(userId, userEmail, amount, screenshot) {
+    return queryRun(
+        'INSERT INTO transactions (user_id, user_email, amount, screenshot) VALUES ($1, $2, $3, $4)',
         [userId, userEmail, amount, screenshot]
     );
 }
 
-function getPendingTransactions() {
-    return allQuery('SELECT * FROM transactions WHERE status = "pending" ORDER BY id DESC');
+async function getPendingTransactions() {
+    const rows = await queryAll('SELECT * FROM transactions WHERE status = $1 ORDER BY id DESC', ['pending']);
+    return rows.map((row) => ({ ...row, amount: Number(row.amount || 0) }));
 }
 
 async function approveTransaction(txId) {
-    const tx = await getQuery('SELECT * FROM transactions WHERE id = ?', [txId]);
-    if (!tx) throw new Error('Transaction not found');
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
 
-    await runQuery('UPDATE transactions SET status = "approved" WHERE id = ?', [txId]);
+        const txRes = await client.query('SELECT * FROM transactions WHERE id = $1 FOR UPDATE', [txId]);
+        const tx = txRes.rows[0];
+        if (!tx) throw new Error('Transaction not found');
 
-    const user = await getQuery('SELECT * FROM users WHERE id = ?', [tx.user_id]);
-    if (!user) throw new Error('User not found');
+        const userRes = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [tx.user_id]);
+        const user = userRes.rows[0];
+        if (!user) throw new Error('User not found');
 
-    await updateUserBalance(tx.user_id, Number(user.balance || 0) + Number(tx.amount || 0));
+        await client.query('UPDATE transactions SET status = $1 WHERE id = $2', ['approved', txId]);
+        await client.query(
+            'UPDATE users SET balance = $1 WHERE id = $2',
+            [Number(user.balance || 0) + Number(tx.amount || 0), tx.user_id]
+        );
+
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
-function addOrder(order) {
-    return runQuery(`
+async function addOrder(order) {
+    const result = await queryRun(`
         INSERT INTO orders (
             user_id, user_email, service_type, service_name, country, country_code, country_id, price,
             payment_method, order_status, phone_number, activation_id,
             expires_at, cancel_available_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING id
     `, [
         order.user_id,
         order.user_email,
@@ -196,40 +227,44 @@ function addOrder(order) {
         order.cancel_available_at,
         order.created_at
     ]);
+
+    return { lastID: result.rows[0].id };
 }
 
-function getOrdersByUser(userId) {
-    return allQuery('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', [userId]);
+async function getOrdersByUser(userId) {
+    const rows = await queryAll('SELECT * FROM orders WHERE user_id = $1 ORDER BY id DESC', [userId]);
+    return rows.map(normalizeOrder);
 }
 
-function getOrderById(orderId) {
-    return getQuery('SELECT * FROM orders WHERE id = ?', [orderId]);
+async function getOrderById(orderId) {
+    return normalizeOrder(await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]));
 }
 
-function updateOrder(orderId, updates) {
+async function updateOrder(orderId, updates) {
     const keys = Object.keys(updates);
-    if (!keys.length) return Promise.resolve();
+    if (!keys.length) return;
 
-    const fields = keys.map((k) => `${k} = ?`).join(', ');
-    const values = keys.map((k) => updates[k]);
+    const fields = keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
+    const values = keys.map((key) => updates[key]);
     values.push(orderId);
 
-    return runQuery(`UPDATE orders SET ${fields} WHERE id = ?`, values);
+    await queryRun(`UPDATE orders SET ${fields} WHERE id = $${values.length}`, values);
 }
 
-function getAllOrders() {
-    return allQuery('SELECT * FROM orders ORDER BY id DESC');
+async function getAllOrders() {
+    const rows = await queryAll('SELECT * FROM orders ORDER BY id DESC');
+    return rows.map(normalizeOrder);
 }
 
-function updateUserLoginAttempts(userId, attempts) {
-    return runQuery('UPDATE users SET login_attempts = ? WHERE id = ?', [attempts, userId]);
+async function updateUserLoginAttempts(userId, attempts) {
+    return queryRun('UPDATE users SET login_attempts = $1 WHERE id = $2', [attempts, userId]);
 }
 
-function updateUserLastLogin(userId) {
-    return runQuery('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [userId]);
+async function updateUserLastLogin(userId) {
+    return queryRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
 }
 
-const SMSBOWER_API_KEY = 'UIFcCburoAQt52BedBFJDEwKvCeviSON';
+const SMSBOWER_API_KEY = process.env.SMSBOWER_API_KEY || 'CHANGE_THIS_API_KEY';
 const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
 const countries = [
@@ -352,7 +387,7 @@ app.post('/api/login', async (req, res) => {
         const user = await findUser(email);
 
         if (user && user.password === password) {
-            if (user.is_active !== 1) return res.status(401).send('Account blocked');
+            if (!user.is_active) return res.status(401).send('Account blocked');
 
             req.session.userId = user.id;
             await updateUserLastLogin(user.id);
@@ -365,7 +400,7 @@ app.post('/api/login', async (req, res) => {
             const newAttempts = Number(user.login_attempts || 0) + 1;
             await updateUserLoginAttempts(user.id, newAttempts);
             if (newAttempts >= 5) {
-                await runQuery('UPDATE users SET is_active = 0 WHERE id = ?', [user.id]);
+                await queryRun('UPDATE users SET is_active = FALSE WHERE id = $1', [user.id]);
             }
         }
 
@@ -398,52 +433,75 @@ app.get('/api/logout', (req, res) => {
 });
 
 app.post('/api/order', ensureAuth, async (req, res) => {
+    const client = await pool.connect();
     try {
         const { countryName, price, countryId } = req.body;
-        const user = await findUserById(req.session.userId);
-        if (!user) return res.status(401).send('User not found');
-
-        if (Number(user.balance) < Number(price)) {
-            return res.status(400).send('Insufficient balance. Please add funds.');
-        }
-
         const countryObj = countries.find((c) => c.name === countryName && Number(c.countryId) === Number(countryId));
         if (!countryObj) return res.status(400).send('Invalid country selected');
+
+        await client.query('BEGIN');
+
+        const userRes = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        if (!user) {
+            await client.query('ROLLBACK');
+            return res.status(401).send('User not found');
+        }
+
+        if (Number(user.balance) < Number(price)) {
+            await client.query('ROLLBACK');
+            return res.status(400).send('Insufficient balance. Please add funds.');
+        }
 
         const baseUsdPrice = pkrToUsd(price);
         const result = await buyNumberWithRetry(countryId, baseUsdPrice, 3);
 
         if (!result.success) {
+            await client.query('ROLLBACK');
             return res.status(500).send('No number available. Please try again later.');
         }
-
-        await updateUserBalance(user.id, Number(user.balance) - Number(price));
 
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
         const cancelAvailableAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
 
-        const inserted = await addOrder({
-            user_id: user.id,
-            user_email: user.email,
-            service_type: 'whatsapp',
-            service_name: 'WhatsApp Number',
-            country: countryName,
-            country_code: countryObj.code,
-            country_id: countryObj.countryId,
-            price,
-            payment_method: 'balance',
-            order_status: 'active',
-            phone_number: result.phoneNumber,
-            activation_id: result.activationId,
-            expires_at: expiresAt,
-            cancel_available_at: cancelAvailableAt,
-            created_at: now.toISOString()
-        });
+        await client.query('UPDATE users SET balance = $1 WHERE id = $2', [
+            Number(user.balance) - Number(price),
+            user.id
+        ]);
 
-        res.json({ id: inserted.lastID, number: result.phoneNumber });
+        const inserted = await client.query(`
+            INSERT INTO orders (
+                user_id, user_email, service_type, service_name, country, country_code, country_id, price,
+                payment_method, order_status, phone_number, activation_id,
+                expires_at, cancel_available_at, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING id
+        `, [
+            user.id,
+            user.email,
+            'whatsapp',
+            'WhatsApp Number',
+            countryName,
+            countryObj.code,
+            countryObj.countryId,
+            price,
+            'balance',
+            'active',
+            result.phoneNumber,
+            result.activationId,
+            expiresAt,
+            cancelAvailableAt,
+            now.toISOString()
+        ]);
+
+        await client.query('COMMIT');
+        res.json({ id: inserted.rows[0].id, number: result.phoneNumber });
     } catch (err) {
+        await client.query('ROLLBACK');
         res.status(500).send('Order failed. Please try again.');
+    } finally {
+        client.release();
     }
 });
 
@@ -501,7 +559,7 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
         await updateOrder(order.id, {
             phone_number: result.phoneNumber,
             activation_id: result.activationId,
-            otp_received: 0,
+            otp_received: false,
             otp_code: null,
             order_status: 'active',
             created_at: now.toISOString(),
@@ -516,20 +574,39 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
 });
 
 app.post('/api/orders/:orderId/cancel', ensureAuth, async (req, res) => {
+    const client = await pool.connect();
     try {
-        const order = await getOrderById(Number(req.params.orderId));
-        if (!order) return res.status(404).send('Order not found');
+        const orderId = Number(req.params.orderId);
+        await client.query('BEGIN');
 
-        const user = await findUserById(req.session.userId);
-        if (!user || order.user_id !== user.id) return res.status(403).send('Unauthorized');
+        const orderRes = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
+        const order = orderRes.rows[0];
+        if (!order) {
+            await client.query('ROLLBACK');
+            return res.status(404).send('Order not found');
+        }
 
-        if (order.order_status !== 'active') return res.status(400).send('Cannot cancel now');
-        if (order.otp_received) return res.status(400).send('OTP already received, cannot cancel');
+        const userRes = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        if (!user || order.user_id !== user.id) {
+            await client.query('ROLLBACK');
+            return res.status(403).send('Unauthorized');
+        }
+
+        if (order.order_status !== 'active') {
+            await client.query('ROLLBACK');
+            return res.status(400).send('Cannot cancel now');
+        }
+
+        if (order.otp_received) {
+            await client.query('ROLLBACK');
+            return res.status(400).send('OTP already received, cannot cancel');
+        }
 
         const now = new Date();
         const cancelAvailable = new Date(order.cancel_available_at);
-
         if (now < cancelAvailable) {
+            await client.query('ROLLBACK');
             return res.status(400).send(`Please wait ${Math.ceil((cancelAvailable - now) / 1000)} seconds before cancelling.`);
         }
 
@@ -538,12 +615,20 @@ app.post('/api/orders/:orderId/cancel', ensureAuth, async (req, res) => {
             await axios.get(cancelUrl, { timeout: 15000 });
         } catch (_) {}
 
-        await updateUserBalance(user.id, Number(user.balance) + Number(order.price));
-        await updateOrder(order.id, { order_status: 'cancelled' });
+        await client.query('UPDATE users SET balance = $1 WHERE id = $2', [
+            Number(user.balance || 0) + Number(order.price || 0),
+            user.id
+        ]);
 
+        await client.query('UPDATE orders SET order_status = $1 WHERE id = $2', ['cancelled', order.id]);
+
+        await client.query('COMMIT');
         res.send('OK');
     } catch (err) {
+        await client.query('ROLLBACK');
         res.status(500).send('Cancel failed');
+    } finally {
+        client.release();
     }
 });
 
@@ -637,7 +722,7 @@ app.get('/api/orders/:orderId/otp', ensureAuth, async (req, res) => {
 
         if (smsResult.success && smsResult.code) {
             await updateOrder(order.id, {
-                otp_received: 1,
+                otp_received: true,
                 otp_code: smsResult.code,
                 order_status: 'otp_received'
             });
