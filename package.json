@@ -1,7 +1,7 @@
 {
   "name": "mrf-otp-website",
   "version": "1.0.0",
-  "description": "MRF Safe Admin Dashboard",
+  "description": "MRF OTP Service",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
