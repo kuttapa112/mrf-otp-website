@@ -3,51 +3,64 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-    <title>MRF SMS – Safe Admin Dashboard</title>
+    <title>MRF SMS – Premium OTP Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         :root{
-            --bg:#07111f;--bg-2:#0b1728;--panel:rgba(13,25,45,.88);--panel-2:rgba(17,34,59,.96);
+            --bg:#07111f;--bg-2:#0b1728;--panel:rgba(13,25,45,.88);--panel-2:rgba(17,34,59,.95);
             --card:rgba(255,255,255,.06);--card-2:rgba(255,255,255,.08);--border:rgba(255,255,255,.10);
             --text:#e7edf7;--muted:#90a0ba;--primary:#31d968;--primary-2:#1fc857;--danger:#ef4444;
-            --warning:#f59e0b;--info:#38bdf8;--shadow:0 20px 60px rgba(0,0,0,.32)
+            --warning:#f59e0b;--info:#38bdf8;--shadow:0 20px 60px rgba(0,0,0,.32);
         }
         body.light{
             --bg:#eef4ff;--bg-2:#dfeaff;--panel:rgba(255,255,255,.94);--panel-2:rgba(255,255,255,.98);
             --card:rgba(12,22,40,.04);--card-2:rgba(12,22,40,.06);--border:rgba(15,23,42,.10);
-            --text:#0f172a;--muted:#64748b;--shadow:0 20px 60px rgba(15,23,42,.12)
+            --text:#0f172a;--muted:#64748b;--shadow:0 20px 60px rgba(15,23,42,.12);
         }
         body{
             min-height:100vh;font-family:'Inter',sans-serif;color:var(--text);
             background:radial-gradient(circle at top left, rgba(34,197,94,.16), transparent 28%),
             radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 24%),
-            linear-gradient(140deg,var(--bg),var(--bg-2))
+            linear-gradient(140deg,var(--bg),var(--bg-2));
         }
         body::before{
-            content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+            content:"";position:fixed;inset:0;
             background-image:linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
-            background-size:28px 28px
+            background-size:28px 28px;pointer-events:none;z-index:0;
         }
         .app-shell{position:relative;z-index:1;padding:18px}
         .dashboard{display:grid;grid-template-columns:280px 1fr 360px;gap:18px;min-height:calc(100vh - 36px)}
-        .glass{background:var(--panel);backdrop-filter:blur(18px);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:28px}
+        .glass{background:var(--panel);backdrop-filter: blur(18px);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:28px}
         .sidebar{padding:20px;display:flex;flex-direction:column;gap:18px;position:sticky;top:18px;max-height:calc(100vh - 36px)}
-        .brand{display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;background:linear-gradient(145deg, rgba(74,222,128,.14), rgba(56,189,248,.10));border:1px solid rgba(255,255,255,.12)}
-        .brand-mark{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-size:26px;font-weight:800;background:linear-gradient(135deg,#31d968,#1fc857);color:#04210f;box-shadow:0 12px 28px rgba(34,197,94,.28)}
+        .brand{
+            display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;
+            background:linear-gradient(145deg, rgba(74,222,128,.14), rgba(56,189,248,.10));border:1px solid rgba(255,255,255,.12)
+        }
+        .brand-mark{
+            width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-size:26px;font-weight:800;
+            background:linear-gradient(135deg,#31d968,#1fc857);color:#04210f;box-shadow:0 12px 28px rgba(34,197,94,.28)
+        }
         .brand h1{font-size:18px;font-weight:800;line-height:1.1}
         .brand p{margin-top:4px;color:var(--muted);font-size:12px}
         .nav-card{padding:14px;border-radius:24px;background:var(--card);border:1px solid var(--border)}
         .nav-label{color:var(--muted);font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px;padding:0 10px}
-        .nav-item{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:18px;border:1px solid transparent;background:transparent;color:var(--text);cursor:pointer;transition:.25s ease;font-size:15px;font-weight:600}
+        .nav-item{
+            display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:18px;border:1px solid transparent;
+            background:transparent;color:var(--text);cursor:pointer;transition:.25s ease;font-size:15px;font-weight:600;
+        }
         .nav-item:hover{background:var(--card-2);border-color:var(--border);transform:translateY(-1px)}
         .nav-item.active{background:linear-gradient(135deg, rgba(74,222,128,.20), rgba(56,189,248,.18));border-color:rgba(74,222,128,.22)}
         .nav-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(255,255,255,.07);font-size:18px;flex-shrink:0}
         .main{padding:18px;overflow:hidden}
-        .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px;padding:22px;border-radius:28px;background:radial-gradient(circle at top right, rgba(74,222,128,.18), transparent 28%), linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));border:1px solid var(--border)}
+        .hero{
+            display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px;padding:22px;border-radius:28px;
+            background:radial-gradient(circle at top right, rgba(74,222,128,.18), transparent 28%), linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+            border:1px solid var(--border);
+        }
         .hero h2{font-size:30px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
         .hero p{color:var(--muted);line-height:1.65;max-width:760px}
         .hero-badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
@@ -56,20 +69,21 @@
         .mini-stat{padding:16px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid var(--border)}
         .mini-stat .label{color:var(--muted);font-size:12px;margin-bottom:8px}
         .mini-stat .value{font-size:24px;font-weight:800}
-        .main-topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
-        .toolbar{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border);flex:1}
+        .toolbar{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:18px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)}
         .search-wrap{display:flex;align-items:center;gap:10px;flex:1;padding:14px 16px;border-radius:18px;border:1px solid var(--border);background:rgba(255,255,255,.04)}
         .search-wrap input{flex:1;border:none;outline:none;background:transparent;color:var(--text);font-size:14px}
         .search-wrap input::placeholder{color:var(--muted)}
         .toolbar-actions{display:flex;gap:10px;flex-wrap:wrap}
         .chip{padding:12px 14px;border-radius:16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);font-weight:600;font-size:13px;cursor:pointer;transition:.2s ease}
         .chip:hover,.chip.active{border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.14)}
-        .profile-btn{display:none;align-items:center;justify-content:center;width:56px;height:56px;border-radius:18px;border:1px solid var(--border);background:linear-gradient(135deg,rgba(74,222,128,.16),rgba(56,189,248,.16));cursor:pointer;color:var(--text);font-weight:800;font-size:18px}
         .section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
         .section-title h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
         .section-title p{font-size:13px;color:var(--muted)}
         .country-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-        .country-card{position:relative;overflow:hidden;padding:18px;border-radius:24px;background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.03));border:1px solid var(--border);transition:.25s ease;box-shadow:0 14px 40px rgba(0,0,0,.18)}
+        .country-card{
+            position:relative;overflow:hidden;padding:18px;border-radius:24px;background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+            border:1px solid var(--border);transition:.25s ease;box-shadow:0 14px 40px rgba(0,0,0,.18)
+        }
         .country-card:hover{transform:translateY(-4px);border-color:rgba(74,222,128,.22);box-shadow:0 22px 50px rgba(0,0,0,.24)}
         .country-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
         .country-flag{width:54px;height:54px;display:grid;place-items:center;font-size:28px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid var(--border)}
@@ -84,10 +98,16 @@
         .btn:disabled{opacity:.6;cursor:not-allowed;transform:none!important}
         .btn-primary{width:100%;padding:14px 18px;border-radius:18px;color:#04210f;background:linear-gradient(135deg,var(--primary),var(--primary-2));box-shadow:0 12px 26px rgba(34,197,94,.26)}
         .btn-soft{padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text)}
+        .btn-danger{background:linear-gradient(135deg,#fb7185,#ef4444);color:#fff}
+        .btn-warning{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f1300}
+        .btn-info{background:linear-gradient(135deg,#67e8f9,#38bdf8);color:#062132}
         .btn-google{width:100%;padding:14px 18px;border-radius:18px;background:#fff;color:#111827;border:1px solid #d1d5db;font-weight:700}
         .right-panel{padding:18px;display:flex;flex-direction:column;gap:16px;position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto}
         .panel-block{padding:18px;border-radius:24px;background:var(--card);border:1px solid var(--border)}
-        .top-auth-card{padding:18px;border-radius:26px;background:radial-gradient(circle at top left, rgba(74,222,128,.18), transparent 25%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));border:1px solid var(--border)}
+        .top-auth-card{
+            padding:18px;border-radius:26px;background:radial-gradient(circle at top left, rgba(74,222,128,.18), transparent 25%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+            border:1px solid var(--border)
+        }
         .top-auth-card h3{font-size:20px;font-weight:800;margin-bottom:8px}
         .top-auth-card p{color:var(--muted);line-height:1.6;font-size:14px}
         .auth-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid var(--border);margin:18px 0}
@@ -98,7 +118,10 @@
         .input-wrap input{flex:1;border:none;background:transparent;outline:none;color:var(--text);font-size:14px}
         .input-wrap input::placeholder{color:var(--muted)}
         .sub-text{margin-top:4px;font-size:12px;color:var(--muted);line-height:1.5}
-        .balance-card{padding:22px;border-radius:26px;background:radial-gradient(circle at top right, rgba(74,222,128,.20), transparent 30%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));border:1px solid var(--border)}
+        .balance-card{
+            padding:22px;border-radius:26px;background:radial-gradient(circle at top right, rgba(74,222,128,.20), transparent 30%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+            border:1px solid var(--border)
+        }
         .balance-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
         .balance-top .label{color:var(--muted);font-size:13px;margin-bottom:8px}
         .balance-amount{font-size:38px;font-weight:800;letter-spacing:-.05em;color:var(--primary);line-height:1}
@@ -110,47 +133,69 @@
         .order-country{font-size:15px;font-weight:700}
         .order-status{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.20);color:#fcd34d;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
         .order-number-small{font-size:13px;color:var(--muted);margin-bottom:10px;word-break:break-all}
+        .order-actions{display:flex;gap:8px;flex-wrap:wrap}
+        .mini-btn{padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:12px;font-weight:700}
         .admin-panel{display:none;margin-top:18px;padding:18px;border-radius:26px;background:var(--card);border:1px solid var(--border)}
-        .notif-bar{display:none;padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;font-weight:800;animation:pulse 1s infinite;margin-bottom:12px}
+        .admin-panel h3{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:20px;font-weight:800}
         .badge{min-width:22px;height:22px;border-radius:999px;display:inline-grid;place-items:center;padding:0 8px;background:linear-gradient(135deg,#fb7185,#ef4444);color:#fff;font-size:11px;font-weight:800}
-        .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
-        .metric-card{padding:16px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
-        .metric-label{font-size:12px;color:var(--muted);margin-bottom:8px}
-        .metric-value{font-size:24px;font-weight:800}
+        .admin-grid{display:grid;grid-template-columns:1fr;gap:16px}
+        .admin-section{padding:16px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--border)}
+        .admin-section h4{font-size:15px;margin-bottom:12px}
         .admin-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--border);margin-bottom:10px}
         .admin-meta{color:var(--muted);font-size:13px;line-height:1.6;margin:8px 0 12px}
         .admin-actions{display:flex;gap:8px;flex-wrap:wrap}
-        .admin-section{padding:16px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--border);margin-top:14px}
-        .admin-section h4{font-size:16px;margin-bottom:12px}
-        .modal{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);backdrop-filter:blur(4px);z-index:3000;padding:18px;justify-content:center;align-items:center}
-        .modal-content{width:min(760px,100%);max-height:92vh;overflow:auto;border-radius:28px;background:var(--panel-2);border:1px solid var(--border);box-shadow:var(--shadow);padding:22px}
+        .account-card{padding:18px;border-radius:24px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+        .account-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+        .account-row:last-child{border-bottom:none}
+        .account-label{color:var(--muted);font-size:13px}
+        .account-value{font-weight:700;text-align:right;word-break:break-all}
+        .modal{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);backdrop-filter: blur(4px);z-index:3000;padding:18px;justify-content:center;align-items:center}
+        .modal-content{width:min(720px,100%);max-height:92vh;overflow:auto;border-radius:28px;background:var(--panel-2);border:1px solid var(--border);box-shadow:var(--shadow);padding:22px}
         .modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
         .modal-header h3{font-size:24px;font-weight:800;letter-spacing:-.03em}
         .modal-header p{color:var(--muted);margin-top:6px;font-size:14px}
         .close-x{width:42px;height:42px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:18px;cursor:pointer}
+        .processing-wrap{text-align:center;padding:30px 12px}
+        .ring{width:72px;height:72px;margin:0 auto 18px;border-radius:50%;border:4px solid rgba(255,255,255,.08);border-top-color:var(--primary);animation:spin .9s linear infinite}
         .payment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:14px 0 18px}
         .payment-box{padding:16px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
         .payment-box strong{display:block;margin-bottom:8px}
         .payment-box p{color:var(--muted);font-size:13px;line-height:1.65}
         .deposit-form{display:flex;flex-direction:column;gap:12px;margin-top:16px}
         .file-input{padding:14px;border:1px dashed var(--border);border-radius:18px;background:rgba(255,255,255,.04)}
-        .profile-grid{display:grid;grid-template-columns:1fr;gap:12px}
-        .profile-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
-        .profile-row:last-child{border-bottom:none}
-        .profile-label{color:var(--muted);font-size:13px}
-        .profile-value{font-weight:700;word-break:break-all;text-align:right}
-        .detail-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+        .order-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;padding:18px;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid var(--border);margin-bottom:14px}
+        .order-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+        .pill{padding:10px 12px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);font-size:12px;font-weight:700}
+        .pill.warning{background:#22c55e !important;border-color:#16a34a !important;color:#ffffff !important}
+        .order-number-box{padding:18px;border-radius:22px;background:linear-gradient(145deg, rgba(74,222,128,.10), rgba(56,189,248,.08));border:1px solid rgba(255,255,255,.12);margin-bottom:14px}
+        .number-line{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+        .number-display{font-size:28px;font-weight:800;letter-spacing:-.03em;word-break:break-all}
+        .otp-state{padding:16px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--border);margin-bottom:14px}
+        .otp-wait{display:flex;align-items:center;gap:14px}
+        .small-ring{width:42px;height:42px;border-radius:50%;border:3px solid rgba(255,255,255,.08);border-top-color:var(--info);animation:spin .8s linear infinite;flex-shrink:0}
+        .otp-code{display:none;padding:18px;border-radius:22px;background:linear-gradient(135deg, rgba(74,222,128,.16), rgba(56,189,248,.12));border:1px solid rgba(74,222,128,.24);margin-bottom:14px}
+        .otp-code .label{color:var(--muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+        .otp-code .value{font-size:36px;font-weight:800;letter-spacing:.22em}
+        .timeline{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px}
+        .timeline-box{padding:16px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+        .timeline-box .t-label{color:var(--muted);font-size:12px;margin-bottom:8px}
+        .timeline-box .t-value{font-size:22px;font-weight:800;letter-spacing:-.03em}
+        .button-group{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+        .button-group .btn{padding:14px 16px;border-radius:18px}
+        .wide-btn{width:100%;margin-top:12px;padding:14px 16px;border-radius:18px}
         .toast-wrap{position:fixed;right:18px;bottom:18px;z-index:5000;display:flex;flex-direction:column;gap:10px}
-        .toast{min-width:280px;max-width:380px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.14);box-shadow:var(--shadow);backdrop-filter:blur(16px);color:#fff;animation:slideUp .25s ease}
+        .toast{min-width:280px;max-width:380px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.14);box-shadow:var(--shadow);backdrop-filter: blur(16px);color:#fff;animation:slideUp .25s ease}
         .toast.success{background:rgba(34,197,94,.95)}
         .toast.error{background:rgba(239,68,68,.95)}
         .toast.info{background:rgba(56,189,248,.95)}
         .topbar-mobile{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
         .topbar-brand{font-size:20px;font-weight:800;letter-spacing:.02em}
-        .icon-btn{width:46px;height:46px;border-radius:16px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter:blur(18px);cursor:pointer}
+        .icon-btn{width:46px;height:46px;border-radius:16px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter: blur(18px);cursor:pointer}
         .sidebar-overlay{display:none;position:fixed;inset:0;background:transparent;z-index:2000}
-        .theme-toggle{position:fixed;right:18px;top:18px;z-index:2500;padding:12px 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter:blur(18px);cursor:pointer;font-weight:700}
+        .theme-toggle{position:fixed;right:18px;top:18px;z-index:2500;padding:12px 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter: blur(18px);cursor:pointer;font-weight:700}
         .hidden{display:none!important}
+        .notif-bar{display:none;padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;font-weight:800;animation:pulse 1s infinite;margin-bottom:12px}
+        @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
         @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.01)}100%{transform:scale(1)}}
         @media (max-width:1180px){
@@ -160,16 +205,17 @@
         }
         @media (max-width:920px){
             .dashboard{grid-template-columns:1fr}
-            .sidebar{position:fixed;left:18px;top:18px;bottom:18px;width:min(320px,calc(100vw - 36px));transform:translateX(-120%);transition:.25s ease;z-index:2200;max-height:none}
+            .sidebar{
+                position:fixed;left:18px;top:18px;bottom:18px;width:min(320px,calc(100vw - 36px));
+                transform:translateX(-120%);transition:.25s ease;z-index:2200;max-height:none;
+            }
             .sidebar.open{transform:translateX(0)}
             .sidebar-overlay.show{display:block}
             .topbar-mobile{display:flex}
             .theme-toggle{top:auto;bottom:18px}
             .hero{flex-direction:column}
             .hero-stats{width:100%;grid-template-columns:repeat(2,1fr)}
-            .payment-grid,.action-row{grid-template-columns:1fr}
-            .main-topbar{flex-direction:column;align-items:stretch}
-            .profile-btn{align-self:flex-end}
+            .payment-grid,.timeline,.button-group,.action-row{grid-template-columns:1fr}
             .right-panel{order:1}
             .main{order:2}
         }
@@ -182,6 +228,8 @@
             .country-grid{grid-template-columns:1fr}
             .modal{padding:12px}
             .modal-content{padding:18px}
+            .number-display{font-size:22px}
+            .otp-code .value{font-size:28px;letter-spacing:.12em}
             .toast-wrap{right:12px;left:12px;bottom:12px}
             .toast{min-width:auto;max-width:none}
         }
@@ -195,7 +243,7 @@
         <div class="topbar-mobile">
             <button class="icon-btn" id="hamburger">☰</button>
             <div class="topbar-brand">MRF SMS</div>
-            <button class="icon-btn hidden" id="mobile-profile-btn">👤</button>
+            <button class="icon-btn hidden" id="contact-btn-mobile">💬</button>
         </div>
 
         <div class="dashboard">
@@ -204,15 +252,15 @@
                     <div class="brand-mark">M</div>
                     <div>
                         <h1>MRF SMS</h1>
-                        <p>Safe Admin Dashboard</p>
+                        <p>Premium OTP Dashboard</p>
                     </div>
                 </div>
 
                 <div class="nav-card">
-                    <div class="nav-label">Menu</div>
-                    <button class="nav-item active">
-                        <span class="nav-icon">📊</span>
-                        <span>Dashboard</span>
+                    <div class="nav-label">Services</div>
+                    <button class="nav-item active" data-service="whatsapp">
+                        <span class="nav-icon">📱</span>
+                        <span>WhatsApp Numbers</span>
                     </button>
                     <button class="nav-item" id="contact-btn">
                         <span class="nav-icon">💬</span>
@@ -224,47 +272,44 @@
             <main class="main glass">
                 <section class="hero">
                     <div>
-                        <h2 id="hero-title">Safe Dashboard</h2>
-                        <p>This safe version keeps your account, admin analytics, deposits, user management, and history active. Order creation is disabled in safe mode.</p>
+                        <h2 id="hero-title">Available WhatsApp Numbers</h2>
+                        <p>Lowest-price providers pehle try honge. Kabhi kabhi search ko 15 to 75 seconds lag sakte hain, please wait calmly.</p>
                         <div class="hero-badges">
-                            <div class="hero-badge">Safe Mode</div>
-                            <div class="hero-badge">Admin Analytics</div>
-                            <div class="hero-badge">Payment Approval</div>
-                            <div class="hero-badge">Profile Drawer</div>
+                            <div class="hero-badge">Auto OTP Check</div>
+                            <div class="hero-badge">Manual OTP Button</div>
+                            <div class="hero-badge">1 Min Cancel Lock</div>
+                            <div class="hero-badge">MRF SMS Brand</div>
                         </div>
                     </div>
                     <div class="hero-stats">
                         <div class="mini-stat">
-                            <div class="label">Mode</div>
-                            <div class="value">Safe</div>
+                            <div class="label">Service</div>
+                            <div class="value">WhatsApp</div>
                         </div>
                         <div class="mini-stat">
-                            <div class="label">Orders</div>
-                            <div class="value">Disabled</div>
+                            <div class="label">Cancel Unlock</div>
+                            <div class="value">1 Min</div>
                         </div>
                     </div>
                 </section>
 
-                <section class="main-topbar">
-                    <div class="toolbar">
-                        <div class="search-wrap">
-                            <span>🔎</span>
-                            <input type="text" id="country-search" placeholder="Search country name..." />
-                        </div>
-                        <div class="toolbar-actions">
-                            <button class="chip active" data-filter="all">All</button>
-                            <button class="chip" data-filter="cheap">Budget</button>
-                            <button class="chip" data-filter="premium">Premium</button>
-                        </div>
+                <section class="toolbar">
+                    <div class="search-wrap">
+                        <span>🔎</span>
+                        <input type="text" id="country-search" placeholder="Search country name..." />
                     </div>
-                    <button class="profile-btn" id="open-profile-btn">👤</button>
+                    <div class="toolbar-actions">
+                        <button class="chip active" data-filter="all">All</button>
+                        <button class="chip" data-filter="cheap">Budget</button>
+                        <button class="chip" data-filter="premium">Premium</button>
+                    </div>
                 </section>
 
                 <section>
                     <div class="section-title">
                         <div>
-                            <h3>Country List</h3>
-                            <p>Display only. Buy option safe mode me disabled hai.</p>
+                            <h3>Number Catalog</h3>
+                            <p>Prices unchanged, look upgraded.</p>
                         </div>
                     </div>
                     <div class="country-grid" id="country-list"></div>
@@ -272,30 +317,16 @@
 
                 <section id="admin-panel" class="admin-panel">
                     <div class="notif-bar" id="notif-bar">⚠️ New pending payment received. Please approve now.</div>
-
-                    <div class="section-title">
-                        <div>
-                            <h3>Admin Control Center</h3>
-                            <p>Profit, users, deposits, orders and balances in one place.</p>
+                    <h3>Admin Panel <span id="payment-badge" class="badge hidden">0</span></h3>
+                    <div class="admin-grid">
+                        <div class="admin-section">
+                            <h4>All Orders</h4>
+                            <div id="admin-orders-list"></div>
                         </div>
-                        <div id="payment-badge" class="badge hidden">0</div>
-                    </div>
-
-                    <div class="metrics-grid" id="admin-overview-cards"></div>
-
-                    <div class="admin-section">
-                        <h4>Users Directory</h4>
-                        <div id="admin-users-list"></div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h4>Orders Intelligence</h4>
-                        <div id="admin-orders-list"></div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h4>Pending Transactions</h4>
-                        <div id="admin-transactions-list"></div>
+                        <div class="admin-section">
+                            <h4>Pending Transactions</h4>
+                            <div id="admin-transactions-list"></div>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -304,7 +335,7 @@
                 <div id="login-prompt">
                     <div class="top-auth-card">
                         <h3>Login / Sign Up</h3>
-                        <p>Clean mobile-friendly auth panel.</p>
+                        <p>Top login area with cleaner mobile layout.</p>
                     </div>
 
                     <div class="auth-switch">
@@ -324,7 +355,7 @@
                             </div>
                             <button class="btn btn-primary" id="login-btn">Login to Dashboard</button>
                             <button class="btn btn-google" id="google-login-btn">🔐 Continue with Google</button>
-                            <div class="sub-text">Google login tabhi chalega jab backend me Google variables configured hon.</div>
+                            <div class="sub-text">Google login active hai. Agar test mode me hai to pehle apni Gmail ko test users me add karo.</div>
                         </div>
                     </div>
 
@@ -362,11 +393,39 @@
                         </div>
                     </div>
 
+                    <div class="account-card">
+                        <div class="section-title" style="margin-bottom:10px;">
+                            <div>
+                                <h3 style="font-size:18px;">Account Details</h3>
+                                <p>Professional profile section</p>
+                            </div>
+                        </div>
+
+                        <div class="account-row">
+                            <div class="account-label">Full Name</div>
+                            <div class="account-value" id="account-name">-</div>
+                        </div>
+                        <div class="account-row">
+                            <div class="account-label">Email / Gmail</div>
+                            <div class="account-value" id="account-email">-</div>
+                        </div>
+                        <div class="account-row">
+                            <div class="account-label">Password</div>
+                            <div class="account-value" id="account-password">********</div>
+                        </div>
+                        <div class="account-row">
+                            <div class="account-label">Referral Code</div>
+                            <div class="account-value" id="account-referral">-</div>
+                        </div>
+
+                        <button class="btn btn-soft wide-btn" id="open-password-modal">Change Password</button>
+                    </div>
+
                     <div class="panel-block">
                         <div class="section-title">
                             <div>
-                                <h3 style="font-size:18px;">My Orders</h3>
-                                <p>Read-only history</p>
+                                <h3 style="font-size:18px;">Active Orders</h3>
+                                <p>Live auto refresh</p>
                             </div>
                         </div>
                         <div class="orders-list" id="active-orders-list"></div>
@@ -376,94 +435,18 @@
         </div>
     </div>
 
-    <div id="auth-required-modal" class="modal">
-        <div class="modal-content" style="max-width:560px;">
-            <div class="modal-header">
-                <div>
-                    <h3>Login Required</h3>
-                    <p>Please login or sign up first.</p>
-                </div>
-                <button class="close-x" id="close-auth-required-modal">✕</button>
+    <div id="processing-modal" class="modal">
+        <div class="modal-content">
+            <div class="processing-wrap">
+                <div class="ring"></div>
+                <h3 style="font-size:26px;font-weight:800;margin-bottom:10px;">Searching Number</h3>
+                <p style="color:var(--muted);line-height:1.7;">Please wait. Hum sab se low-price available provider se start kar rahe hain. Is process ko 15 se 75 seconds lag sakte hain.</p>
             </div>
-
-            <div class="auth-switch">
-                <button class="auth-tab active" id="modal-show-login-tab">Login</button>
-                <button class="auth-tab" id="modal-show-register-tab">Sign Up</button>
-            </div>
-
-            <div id="modal-login-wrap">
-                <div class="auth-form">
-                    <div class="input-wrap">
-                        <span>📧</span>
-                        <input type="email" id="modal-login-email" placeholder="Email address">
-                    </div>
-                    <div class="input-wrap">
-                        <span>🔐</span>
-                        <input type="password" id="modal-login-password" placeholder="Password">
-                    </div>
-                    <button class="btn btn-primary" id="modal-login-btn">Login</button>
-                </div>
-            </div>
-
-            <div id="modal-register-wrap" class="hidden">
-                <div class="auth-form">
-                    <div class="input-wrap">
-                        <span>👤</span>
-                        <input type="text" id="modal-reg-name" placeholder="Full name">
-                    </div>
-                    <div class="input-wrap">
-                        <span>📧</span>
-                        <input type="email" id="modal-reg-email" placeholder="Email address">
-                    </div>
-                    <div class="input-wrap">
-                        <span>🔒</span>
-                        <input type="password" id="modal-reg-password" placeholder="Password">
-                    </div>
-                    <button class="btn btn-primary" id="modal-register-btn">Create Account</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="profile-modal" class="modal">
-        <div class="modal-content" style="max-width:620px;">
-            <div class="modal-header">
-                <div>
-                    <h3>My Account</h3>
-                    <p>Your account details are shown only inside this profile panel.</p>
-                </div>
-                <button class="close-x" id="close-profile-modal">✕</button>
-            </div>
-
-            <div class="profile-grid">
-                <div class="profile-row">
-                    <div class="profile-label">Full Name</div>
-                    <div class="profile-value" id="profile-name">-</div>
-                </div>
-                <div class="profile-row">
-                    <div class="profile-label">Email / Gmail</div>
-                    <div class="profile-value" id="profile-email">-</div>
-                </div>
-                <div class="profile-row">
-                    <div class="profile-label">Password</div>
-                    <div class="profile-value" id="profile-password">********</div>
-                </div>
-                <div class="profile-row">
-                    <div class="profile-label">Referral Code</div>
-                    <div class="profile-value" id="profile-referral">-</div>
-                </div>
-                <div class="profile-row">
-                    <div class="profile-label">Current Balance</div>
-                    <div class="profile-value" id="profile-balance">0 PKR</div>
-                </div>
-            </div>
-
-            <button class="btn btn-soft" style="width:100%;margin-top:12px" id="open-password-modal">Change Password</button>
         </div>
     </div>
 
     <div id="password-modal" class="modal">
-        <div class="modal-content" style="max-width:560px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <div>
                     <h3>Change Password</h3>
@@ -523,21 +506,71 @@
                 <div class="file-input">
                     <input type="file" name="screenshot" accept="image/*" required style="width:100%;color:var(--text);background:transparent;">
                 </div>
-                <button type="submit" id="submit-payment-btn" class="btn btn-primary" style="width:100%">Submit Payment</button>
+                <button type="submit" id="submit-payment-btn" class="btn btn-primary wide-btn">Submit Payment</button>
             </form>
         </div>
     </div>
 
-    <div id="user-detail-modal" class="modal">
+    <div id="order-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h3>User Detail</h3>
-                    <p>Separate detail view for one user.</p>
+                    <h3>Order Details</h3>
+                    <p>Auto OTP checking is active. Manual check also available.</p>
                 </div>
-                <button class="close-x" id="close-user-detail-modal">✕</button>
+                <button class="close-x" id="close-order-modal">✕</button>
             </div>
-            <div id="user-detail-body"></div>
+
+            <div class="order-head">
+                <div>
+                    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;">Current Order</div>
+                    <div style="font-size:20px;font-weight:800;margin-top:8px;" id="order-country-title">Waiting...</div>
+                    <div class="order-badges">
+                        <span class="pill warning" id="order-status-pill">ACTIVE</span>
+                        <span class="pill" id="order-price-pill">0 PKR</span>
+                    </div>
+                </div>
+                <div class="pill" id="order-created-pill">Live Tracking</div>
+            </div>
+
+            <div class="order-number-box">
+                <div class="number-line">
+                    <div>
+                        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;">Assigned Number</div>
+                        <div class="number-display" id="order-number">Processing...</div>
+                    </div>
+                    <button class="btn btn-soft" id="copy-number-btn">Copy</button>
+                </div>
+            </div>
+
+            <div class="timeline">
+                <div class="timeline-box">
+                    <div class="t-label">Order Expiry</div>
+                    <div class="t-value" id="order-timer">25:00</div>
+                </div>
+                <div class="timeline-box">
+                    <div class="t-label">Cancel Unlock</div>
+                    <div class="t-value" id="order-cancel-timer">01:00</div>
+                </div>
+            </div>
+
+            <div class="otp-state" id="order-waiting">
+                <div class="otp-wait">
+                    <div class="small-ring"></div>
+                    <div>
+                        <div style="font-weight:700;margin-bottom:6px;">Waiting for OTP...</div>
+                        <div style="color:var(--muted);font-size:14px;line-height:1.6;">System checks automatically every 5 seconds.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="otp-code" id="order-otp">
+                <div class="label">Received OTP</div>
+                <div class="value" id="otp-value">------</div>
+            </div>
+
+            <button class="btn btn-info wide-btn" id="check-otp-manual">Check OTP Now</button>
+            <div class="button-group" id="order-buttons"></div>
         </div>
     </div>
 
@@ -559,18 +592,19 @@
 
     <script>
         let currentUser = null;
+        let activeOrder = null;
+        let otpInterval = null;
+        let timerInterval = null;
         let adminRefreshInterval = null;
         let adminAlertInterval = null;
         let lastPendingCount = 0;
         let allCountries = [];
         let currentFilter = 'all';
-        const notificationSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+        let notificationSound = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
 
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
         const hamburger = document.getElementById('hamburger');
-
-        function qs(id) { return document.getElementById(id); }
 
         function openSidebar() {
             sidebar.classList.add('open');
@@ -586,13 +620,15 @@
         overlay.addEventListener('click', closeSidebar);
 
         function showToast(message, type = 'info', duration = 4000) {
-            const wrap = qs('toast-wrap');
+            const wrap = document.getElementById('toast-wrap');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
             wrap.appendChild(toast);
             setTimeout(() => toast.remove(), duration);
         }
+
+        function qs(id) { return document.getElementById(id); }
 
         function setLoading(button, text) {
             button.dataset.original = button.innerHTML;
@@ -613,13 +649,13 @@
             return res.json();
         }
 
-        function formatMoney(value) {
-            return `${Number(value || 0).toFixed(2)} PKR`;
+        function formatRelativeTime(dateString) {
+            return new Date(dateString).toLocaleString();
         }
 
-        function formatDate(value) {
-            if (!value) return '-';
-            return new Date(value).toLocaleString();
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => showToast('Copied successfully', 'success'))
+            .catch(() => showToast('Copy failed', 'error'));
         }
 
         async function requestBrowserNotificationPermission() {
@@ -650,18 +686,6 @@
             qs('notif-bar').style.display = 'none';
         }
 
-        function openProfileModal() {
-            qs('profile-modal').style.display = 'flex';
-        }
-
-        function openAuthRequiredModal() {
-            qs('auth-required-modal').style.display = 'flex';
-        }
-
-        function closeModal(id) {
-            qs(id).style.display = 'none';
-        }
-
         function renderCountries() {
             let filtered = [...allCountries];
             const search = qs('country-search').value.trim().toLowerCase();
@@ -677,10 +701,10 @@
             }
 
             container.innerHTML = filtered.map(c => `
-                <div class="country-card">
+                <div class="country-card" data-id="${c.countryId}" data-name="${c.name}" data-price="${c.price}">
                     <div class="country-top">
                         <div class="country-flag">${c.flag}</div>
-                        <div class="status-pill">Listed</div>
+                        <div class="status-pill">Available</div>
                     </div>
                     <div class="country-name">${c.name}</div>
                     <div class="country-code">${c.code}</div>
@@ -689,19 +713,16 @@
                             <span>Current Price</span>
                             <div class="country-price">${c.price} PKR</div>
                         </div>
-                        <div class="tiny-note">Safe View</div>
+                        <div class="tiny-note">Fast Order</div>
                     </div>
-                    <button class="btn btn-primary buy-btn" data-name="${c.name}">Unavailable in Safe Mode</button>
+                    <button class="btn btn-primary buy-btn">Buy Number</button>
                 </div>
             `).join('');
 
             document.querySelectorAll('.buy-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    if (!currentUser) {
-                        openAuthRequiredModal();
-                        return;
-                    }
-                    showToast('Order creation is disabled in safe mode', 'info');
+                btn.addEventListener('click', (e) => {
+                    const card = e.currentTarget.closest('.country-card');
+                    orderCountry(card.dataset.name, Number(card.dataset.price), Number(card.dataset.id));
                 });
             });
         }
@@ -715,12 +736,229 @@
             }
         }
 
-        function renderProfile(user) {
-            qs('profile-name').innerText = user.name || '-';
-            qs('profile-email').innerText = user.email || '-';
-            qs('profile-password').innerText = user.maskedPassword || '********';
-            qs('profile-referral').innerText = user.referralCode || '-';
-            qs('profile-balance').innerText = `${Number(user.balance || 0)} PKR`;
+        async function orderCountry(name, price, id) {
+            if (!currentUser) {
+                showToast('Please login first', 'error');
+                return;
+            }
+
+            qs('processing-modal').style.display = 'flex';
+            try {
+                const res = await fetch('/api/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ countryName: name, price, countryId: id }),
+                    credentials: 'include'
+                });
+
+                qs('processing-modal').style.display = 'none';
+
+                if (!res.ok) {
+                    showToast(await res.text(), 'error');
+                    return;
+                }
+
+                const order = await res.json();
+                showToast('Number purchased successfully', 'success');
+                await refreshUserInfo();
+                openOrderModal(order.id);
+            } catch (err) {
+                qs('processing-modal').style.display = 'none';
+                showToast('Order failed: ' + err.message, 'error');
+            }
+        }
+
+        function stopOrderIntervals() {
+            if (otpInterval) clearInterval(otpInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            otpInterval = null;
+            timerInterval = null;
+        }
+
+        function updateOrderVisual(order) {
+            qs('order-country-title').innerText = `${order.country} • WhatsApp`;
+            qs('order-status-pill').innerText = (order.order_status || 'active').replace('_', ' ').toUpperCase();
+            qs('order-price-pill').innerText = `${order.price} PKR`;
+            qs('order-created-pill').innerText = formatRelativeTime(order.created_at);
+            qs('order-number').innerText = order.phone_number || 'Processing...';
+
+            const otpBox = qs('order-otp');
+            const waitingBox = qs('order-waiting');
+
+            if (order.otp_code) {
+                qs('otp-value').innerText = order.otp_code;
+                otpBox.style.display = 'block';
+                waitingBox.style.display = 'none';
+            } else {
+                otpBox.style.display = 'none';
+                waitingBox.style.display = 'block';
+            }
+
+            updateOrderButtons(order);
+            updateTimerDisplay(order);
+        }
+
+        function updateTimerDisplay(order) {
+            const now = new Date();
+            const expiry = new Date(order.expires_at || new Date(new Date(order.created_at).getTime() + 25 * 60 * 1000));
+            const cancelAt = new Date(order.cancel_available_at || new Date(new Date(order.created_at).getTime() + 1 * 60 * 1000));
+
+            const expiryDiff = Math.max(0, expiry - now);
+            const cancelDiff = Math.max(0, cancelAt - now);
+
+            const expiryMins = Math.floor(expiryDiff / 60000);
+            const expirySecs = Math.floor((expiryDiff % 60000) / 1000);
+            qs('order-timer').innerText = expiryDiff <= 0 ? 'Expired' : `${expiryMins}:${String(expirySecs).padStart(2, '0')}`;
+
+            const cancelMins = Math.floor(cancelDiff / 60000);
+            const cancelSecs = Math.floor((cancelDiff % 60000) / 1000);
+            qs('order-cancel-timer').innerText = cancelDiff <= 0 ? 'Unlocked' : `${cancelMins}:${String(cancelSecs).padStart(2, '0')}`;
+        }
+
+        function updateOrderButtons(order) {
+            const container = qs('order-buttons');
+            container.innerHTML = '';
+
+            if (order.otp_code) {
+                container.innerHTML = `
+                    <button class="btn btn-primary" id="complete-order-btn">Complete Order</button>
+                    <button class="btn btn-soft" id="close-order-btn-inline">Close</button>
+                    <button class="btn btn-info" id="copy-otp-btn">Copy OTP</button>
+                `;
+                qs('complete-order-btn').addEventListener('click', async () => {
+                    try {
+                        const res = await fetch(`/api/orders/${order.id}/complete`, { method: 'POST', credentials: 'include' });
+                        if (!res.ok) throw new Error(await res.text());
+                        showToast('Order completed', 'success');
+                        closeOrderModal();
+                        refreshUserInfo();
+                    } catch (err) {
+                        showToast(err.message, 'error');
+                    }
+                });
+                qs('close-order-btn-inline').addEventListener('click', closeOrderModal);
+                qs('copy-otp-btn').addEventListener('click', () => copyText(order.otp_code));
+                return;
+            }
+
+            if (order.order_status !== 'active' && order.order_status !== 'otp_received') {
+                container.innerHTML = `<button class="btn btn-soft" id="close-order-btn-inline">Close</button>`;
+                qs('close-order-btn-inline').addEventListener('click', closeOrderModal);
+                return;
+            }
+
+            const cancelEnabled = new Date() >= new Date(order.cancel_available_at);
+
+            container.innerHTML = `
+                <button class="btn btn-warning" id="replace-order-btn">Replace Number</button>
+                <button class="btn btn-danger" id="cancel-order-btn" ${cancelEnabled ? '' : 'disabled'}>${cancelEnabled ? 'Cancel & Refund' : 'Cancel Locked'}</button>
+                <button class="btn btn-soft" id="close-order-btn-inline">Close</button>
+            `;
+
+            qs('replace-order-btn').addEventListener('click', async () => {
+                if (!confirm('Replace current number?')) return;
+                try {
+                    const res = await fetch(`/api/orders/${order.id}/replace`, { method: 'POST', credentials: 'include' });
+                    if (!res.ok) throw new Error(await res.text());
+                    showToast('Number replaced', 'success');
+                    openOrderModal(order.id);
+                    refreshUserInfo();
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            });
+
+            if (cancelEnabled) {
+                qs('cancel-order-btn').addEventListener('click', async () => {
+                    if (!confirm('Cancel order and refund amount?')) return;
+                    try {
+                        const res = await fetch(`/api/orders/${order.id}/cancel`, { method: 'POST', credentials: 'include' });
+                        if (!res.ok) throw new Error(await res.text());
+                        showToast('Order cancelled', 'success');
+                        closeOrderModal();
+                        refreshUserInfo();
+                    } catch (err) {
+                        showToast(err.message, 'error');
+                    }
+                });
+            }
+
+            qs('close-order-btn-inline').addEventListener('click', closeOrderModal);
+        }
+
+        async function pollOtp(orderId, silent = false) {
+            try {
+                const result = await fetchJSON(`/api/orders/${orderId}/otp`);
+                if (result.received) {
+                    const refreshed = await fetchJSON(`/api/orders/${orderId}`);
+                    activeOrder = refreshed;
+                    updateOrderVisual(refreshed);
+                    stopOrderIntervals();
+                    notificationSound.play().catch(() => {});
+                    showToast('OTP received', 'success');
+                    await refreshUserInfo();
+                    return true;
+                }
+                if (result.expired) {
+                    const refreshed = await fetchJSON(`/api/orders/${orderId}`);
+                    activeOrder = refreshed;
+                    updateOrderVisual(refreshed);
+                    stopOrderIntervals();
+                    showToast('Order expired', 'error');
+                    await refreshUserInfo();
+                    return true;
+                }
+                if (!silent) showToast('No OTP yet. Still waiting...', 'info');
+                return false;
+            } catch {
+                if (!silent) showToast('OTP check failed', 'error');
+                return false;
+            }
+        }
+
+        async function openOrderModal(orderId) {
+            try {
+                const order = await fetchJSON(`/api/orders/${orderId}`);
+                activeOrder = order;
+                updateOrderVisual(order);
+                qs('order-modal').style.display = 'flex';
+
+                stopOrderIntervals();
+
+                otpInterval = setInterval(async () => {
+                    if (!activeOrder) return;
+                    await pollOtp(activeOrder.id, true);
+                }, 5000);
+
+                timerInterval = setInterval(async () => {
+                    if (!activeOrder) return;
+                    try {
+                        const updated = await fetchJSON(`/api/orders/${activeOrder.id}`);
+                        activeOrder = updated;
+                        updateOrderVisual(updated);
+
+                        const expired = new Date() >= new Date(updated.expires_at);
+                        if (updated.otp_code || expired || updated.order_status === 'cancelled' || updated.order_status === 'completed') {
+                            if (expired && !updated.otp_code && updated.order_status === 'active') {
+                                await fetch(`/api/orders/${updated.id}/expire`, { method: 'POST', credentials: 'include' });
+                                const refreshed = await fetchJSON(`/api/orders/${updated.id}`);
+                                activeOrder = refreshed;
+                                updateOrderVisual(refreshed);
+                                await refreshUserInfo();
+                            }
+                            stopOrderIntervals();
+                        }
+                    } catch {}
+                }, 1000);
+            } catch {
+                showToast('Could not load order details', 'error');
+            }
+        }
+
+        function closeOrderModal() {
+            qs('order-modal').style.display = 'none';
+            stopOrderIntervals();
+            activeOrder = null;
         }
 
         async function refreshUserInfo() {
@@ -730,27 +968,39 @@
                 const user = await fetchJSON('/api/me');
                 currentUser = user;
                 qs('user-balance').innerText = user.balance;
-                renderProfile(user);
+                qs('account-name').innerText = user.name || '-';
+                qs('account-email').innerText = user.email || '-';
+                qs('account-password').innerText = user.maskedPassword || '********';
+                qs('account-referral').innerText = user.referralCode || '-';
 
                 const orders = await fetchJSON('/api/orders');
-                const container = qs('active-orders-list');
+                const activeOrders = orders.filter(o => o.order_status === 'active' || o.order_status === 'otp_received');
 
-                if (!orders.length) {
-                    container.innerHTML = `<div class="sub-text">No order history available.</div>`;
+                const container = qs('active-orders-list');
+                if (!activeOrders.length) {
+                    container.innerHTML = `<div class="sub-text">No active orders right now.</div>`;
                 } else {
-                    container.innerHTML = orders.slice(0, 20).map(o => `
+                    container.innerHTML = activeOrders.map(o => `
                         <div class="order-item">
                             <div class="order-top">
-                                <div class="order-country">${o.country || 'Unknown'}</div>
-                                <div class="order-status">${(o.order_status || 'pending').toUpperCase()}</div>
+                                <div class="order-country">${o.country}</div>
+                                <div class="order-status">${o.otp_code ? 'OTP Ready' : 'Waiting'}</div>
                             </div>
-                            <div class="order-number-small">${o.phone_number || 'No number'}</div>
-                            <div class="sub-text">
-                                Price: ${formatMoney(o.price)}<br>
-                                OTP: ${o.otp_code || 'Not received'}
+                            <div class="order-number-small">${o.phone_number || 'Processing...'}</div>
+                            <div class="order-actions">
+                                <button class="mini-btn view-order-btn" data-id="${o.id}">View Details</button>
+                                ${o.phone_number ? `<button class="mini-btn copy-order-btn" data-number="${o.phone_number}">Copy Number</button>` : ''}
                             </div>
                         </div>
                     `).join('');
+
+                    document.querySelectorAll('.view-order-btn').forEach(btn => {
+                        btn.addEventListener('click', () => openOrderModal(btn.dataset.id));
+                    });
+
+                    document.querySelectorAll('.copy-order-btn').forEach(btn => {
+                        btn.addEventListener('click', () => copyText(btn.dataset.number));
+                    });
                 }
 
                 if (user.role === 'admin') {
@@ -773,69 +1023,16 @@
             }
         }
 
-        function overviewCard(label, value) {
-            return `
-                <div class="metric-card">
-                    <div class="metric-label">${label}</div>
-                    <div class="metric-value">${value}</div>
-                </div>
-            `;
-        }
-
         async function loadAdminData() {
             try {
-                const overview = await fetchJSON('/api/admin/overview');
-                const users = await fetchJSON('/api/admin/users');
                 const orders = await fetchJSON('/api/admin/orders');
                 const transactions = await fetchJSON('/api/admin/transactions');
 
-                qs('admin-overview-cards').innerHTML = [
-                    overviewCard('Total Users', overview.totalUsers),
-                    overviewCard('Active Users', overview.activeUsers),
-                    overviewCard('Approved Deposits', formatMoney(overview.approvedDeposits)),
-                    overviewCard('Pending Deposits', formatMoney(overview.pendingDeposits)),
-                    overviewCard('User Balances', formatMoney(overview.totalUserBalances)),
-                    overviewCard('Collected Sales', formatMoney(overview.collectedSales)),
-                    overviewCard('Refunded Sales', formatMoney(overview.refundedSales)),
-                    overviewCard('Tracked Cost', formatMoney(overview.totalCost)),
-                    overviewCard('Tracked Profit', formatMoney(overview.totalProfit)),
-                    overviewCard('Net Position', formatMoney(overview.netPosition)),
-                    overviewCard('Live Orders', overview.liveOrders),
-                    overviewCard('Completed Orders', overview.completedOrders)
-                ].join('');
-
-                const usersList = qs('admin-users-list');
-                usersList.innerHTML = users.length ? users.map(u => `
-                    <div class="admin-card">
-                        <div><strong>${u.name || 'No Name'}</strong> — ${u.email}</div>
-                        <div class="admin-meta">
-                            Balance: ${formatMoney(u.balance)}<br>
-                            Approved Deposits: ${formatMoney(u.approved_total)}<br>
-                            Pending Deposits: ${formatMoney(u.pending_total)}<br>
-                            Total Orders: ${u.total_orders} | Live: ${u.live_orders} | Completed: ${u.completed_orders} | Cancelled: ${u.cancelled_orders}<br>
-                            Total Spent: ${formatMoney(u.total_spent)} | Tracked Profit: ${formatMoney(u.tracked_profit)}<br>
-                            Last Login: ${formatDate(u.last_login)}
-                        </div>
-                        <div class="admin-actions">
-                            <button class="mini-btn user-detail-btn" data-id="${u.id}">Open Full Detail</button>
-                        </div>
-                    </div>
-                `).join('') : `<div class="sub-text">No users available.</div>`;
-
-                document.querySelectorAll('.user-detail-btn').forEach(btn => {
-                    btn.addEventListener('click', () => openUserDetail(btn.dataset.id));
-                });
-
                 const ordersList = qs('admin-orders-list');
-                ordersList.innerHTML = orders.length ? orders.slice(0, 50).map(o => `
+                ordersList.innerHTML = orders.length ? orders.map(o => `
                     <div class="admin-card">
-                        <div><strong>${o.user_name || 'Unknown User'}</strong> — ${o.user_email}</div>
-                        <div class="admin-meta">
-                            ${o.country || 'Unknown'} | ${o.phone_number || 'No Number'}<br>
-                            Charged: ${formatMoney(o.price)} | Cost: ${o.cost_price == null ? 'N/A' : formatMoney(o.cost_price)} | Profit: ${o.profit_amount == null ? 'N/A' : formatMoney(o.profit_amount)}<br>
-                            Status: ${o.order_status || 'pending'} | OTP: ${o.otp_code || 'Not received'}<br>
-                            Search: ${o.search_strategy || 'unknown'} | Provider: ${o.provider_id || 'N/A'}
-                        </div>
+                        <div><strong>${o.user_email}</strong></div>
+                        <div class="admin-meta">${o.country} • ${o.price} PKR • ${o.order_status}</div>
                     </div>
                 `).join('') : `<div class="sub-text">No orders available.</div>`;
 
@@ -862,11 +1059,8 @@
                 const txList = qs('admin-transactions-list');
                 txList.innerHTML = transactions.length ? transactions.map(t => `
                     <div class="admin-card">
-                        <div><strong>${t.user_name || 'Unknown User'}</strong> — ${t.user_email}</div>
-                        <div class="admin-meta">
-                            Amount: ${formatMoney(t.amount)}<br>
-                            Submitted: ${formatDate(t.created_at)}
-                        </div>
+                        <div><strong>${t.user_email}</strong></div>
+                        <div class="admin-meta">Amount: ${t.amount} PKR</div>
                         <div class="admin-actions">
                             <a class="mini-btn" href="/uploads/${t.screenshot}" target="_blank" style="text-decoration:none;">View Screenshot</a>
                             <button class="mini-btn approve-btn" data-id="${t.id}">Approve</button>
@@ -876,107 +1070,28 @@
 
                 document.querySelectorAll('.approve-btn').forEach(btn => {
                     btn.addEventListener('click', async () => {
-                        const oldText = btn.innerText;
                         try {
-                            btn.disabled = true;
-                            btn.innerText = 'Approving...';
-
                             const res = await fetch(`/api/admin/transactions/${btn.dataset.id}/approve`, {
                                 method: 'POST',
                                 credentials: 'include'
                             });
-
-                            const text = await res.text();
-
-                            if (!res.ok) {
-                                throw new Error(text);
-                            }
-
-                            let parsed = null;
-                            try {
-                                parsed = JSON.parse(text);
-                            } catch {}
-
-                            showToast(parsed?.message || 'Payment approved successfully', 'success');
+                            if (!res.ok) throw new Error(await res.text());
+                            showToast('Payment approved', 'success');
                             await loadAdminData();
-                            await refreshUserInfo();
+                            if (currentUser) {
+                                const me = await fetchJSON('/api/me');
+                                qs('user-balance').innerText = me.balance;
+                            }
                         } catch (err) {
-                            showToast(err.message || 'Approval failed', 'error');
-                        } finally {
-                            btn.disabled = false;
-                            btn.innerText = oldText;
+                            showToast(err.message, 'error');
                         }
                     });
                 });
-            } catch {
-                showToast('Failed to load admin data', 'error');
-            }
+            } catch {}
         }
 
-        async function openUserDetail(userId) {
-            try {
-                const data = await fetchJSON(`/api/admin/users/${userId}/detail`);
-                const user = data.user;
-                const orders = data.orders || [];
-                const transactions = data.transactions || [];
-
-                qs('user-detail-body').innerHTML = `
-                    <div class="admin-section">
-                        <h4>User Overview</h4>
-                        <div class="detail-list">
-                            <div class="admin-card">
-                                <div><strong>${user.name || 'No Name'}</strong> — ${user.email}</div>
-                                <div class="admin-meta">
-                                    Balance: ${formatMoney(user.balance)}<br>
-                                    Referral: ${user.referralCode || '-'}<br>
-                                    Last Login: ${formatDate(user.last_login)}<br>
-                                    Created At: ${formatDate(user.created_at)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h4>Orders</h4>
-                        <div class="detail-list">
-                            ${orders.length ? orders.map(o => `
-                                <div class="admin-card">
-                                    <div><strong>${o.country || 'Unknown'}</strong> — ${o.phone_number || 'No Number'}</div>
-                                    <div class="admin-meta">
-                                        Charged: ${formatMoney(o.price)} | Cost: ${o.cost_price == null ? 'N/A' : formatMoney(o.cost_price)} | Profit: ${o.profit_amount == null ? 'N/A' : formatMoney(o.profit_amount)}<br>
-                                        Status: ${o.order_status || 'pending'}<br>
-                                        OTP: ${o.otp_code || 'Not received'}<br>
-                                        Activation ID: ${o.activation_id || '-'}<br>
-                                        Created: ${formatDate(o.created_at)}
-                                    </div>
-                                </div>
-                            `).join('') : `<div class="sub-text">No orders found.</div>`}
-                        </div>
-                    </div>
-
-                    <div class="admin-section">
-                        <h4>Transactions</h4>
-                        <div class="detail-list">
-                            ${transactions.length ? transactions.map(t => `
-                                <div class="admin-card">
-                                    <div><strong>${formatMoney(t.amount)}</strong> — ${t.status}</div>
-                                    <div class="admin-meta">
-                                        Created: ${formatDate(t.created_at)}
-                                    </div>
-                                </div>
-                            `).join('') : `<div class="sub-text">No transactions found.</div>`}
-                        </div>
-                    </div>
-                `;
-
-                qs('user-detail-modal').style.display = 'flex';
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        }
-
-        async function login(email, password, fromModal = false) {
-            const btn = fromModal ? qs('modal-login-btn') : qs('login-btn');
+        async function login(email, password) {
+            const btn = qs('login-btn');
             setLoading(btn, 'Signing in...');
             try {
                 const res = await fetch('/api/login', {
@@ -989,7 +1104,6 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Logged in successfully', 'success');
-                closeModal('auth-required-modal');
                 await checkAuth();
             } catch (err) {
                 showToast(err.message, 'error');
@@ -998,8 +1112,8 @@
             }
         }
 
-        async function register(name, email, password, fromModal = false) {
-            const btn = fromModal ? qs('modal-register-btn') : qs('register-btn');
+        async function register(name, email, password) {
+            const btn = qs('register-btn');
             setLoading(btn, 'Creating account...');
             try {
                 const res = await fetch('/api/register', {
@@ -1012,8 +1126,7 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Account created. Please login.', 'success');
-                if (fromModal) showModalLoginForm();
-                else showLoginForm();
+                showLoginForm();
             } catch (err) {
                 showToast(err.message, 'error');
             } finally {
@@ -1038,7 +1151,7 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Password changed successfully', 'success');
-                closeModal('password-modal');
+                qs('password-modal').style.display = 'none';
                 qs('current-password').value = '';
                 qs('new-password').value = '';
             } catch (err) {
@@ -1054,8 +1167,7 @@
             qs('user-info').classList.add('hidden');
             qs('login-prompt').classList.remove('hidden');
             qs('admin-panel').style.display = 'none';
-            qs('open-profile-btn').style.display = 'none';
-            qs('mobile-profile-btn').classList.add('hidden');
+            stopOrderIntervals();
             stopAdminAlertLoop();
             if (adminRefreshInterval) clearInterval(adminRefreshInterval);
             adminRefreshInterval = null;
@@ -1070,16 +1182,12 @@
                 currentUser = await res.json();
                 qs('login-prompt').classList.add('hidden');
                 qs('user-info').classList.remove('hidden');
-                qs('open-profile-btn').style.display = 'flex';
-                qs('mobile-profile-btn').classList.remove('hidden');
                 await refreshUserInfo();
                 await requestBrowserNotificationPermission();
             } catch {
                 currentUser = null;
                 qs('login-prompt').classList.remove('hidden');
                 qs('user-info').classList.add('hidden');
-                qs('open-profile-btn').style.display = 'none';
-                qs('mobile-profile-btn').classList.add('hidden');
             }
         }
 
@@ -1097,51 +1205,33 @@
             qs('login-form-wrap').classList.add('hidden');
         }
 
-        function showModalLoginForm() {
-            qs('modal-show-login-tab').classList.add('active');
-            qs('modal-show-register-tab').classList.remove('active');
-            qs('modal-login-wrap').classList.remove('hidden');
-            qs('modal-register-wrap').classList.add('hidden');
-        }
-
-        function showModalRegisterForm() {
-            qs('modal-show-register-tab').classList.add('active');
-            qs('modal-show-login-tab').classList.remove('active');
-            qs('modal-register-wrap').classList.remove('hidden');
-            qs('modal-login-wrap').classList.add('hidden');
-        }
-
         qs('show-login-tab').addEventListener('click', showLoginForm);
         qs('show-register-tab').addEventListener('click', showRegisterForm);
-        qs('modal-show-login-tab').addEventListener('click', showModalLoginForm);
-        qs('modal-show-register-tab').addEventListener('click', showModalRegisterForm);
 
-        qs('login-btn').addEventListener('click', () => login(qs('login-email').value.trim(), qs('login-password').value, false));
-        qs('register-btn').addEventListener('click', () => register(qs('reg-name').value.trim(), qs('reg-email').value.trim(), qs('reg-password').value, false));
-        qs('modal-login-btn').addEventListener('click', () => login(qs('modal-login-email').value.trim(), qs('modal-login-password').value, true));
-        qs('modal-register-btn').addEventListener('click', () => register(qs('modal-reg-name').value.trim(), qs('modal-reg-email').value.trim(), qs('modal-reg-password').value, true));
+        qs('login-btn').addEventListener('click', () => {
+            login(qs('login-email').value.trim(), qs('login-password').value);
+        });
+
+        qs('register-btn').addEventListener('click', () => {
+            register(qs('reg-name').value.trim(), qs('reg-email').value.trim(), qs('reg-password').value);
+        });
 
         qs('google-login-btn').addEventListener('click', () => {
             window.location.href = '/api/auth/google';
         });
 
-        qs('open-profile-btn').addEventListener('click', openProfileModal);
-        qs('mobile-profile-btn').addEventListener('click', openProfileModal);
-
         qs('open-password-modal').addEventListener('click', () => {
             qs('password-modal').style.display = 'flex';
         });
-
-        qs('close-profile-modal').addEventListener('click', () => closeModal('profile-modal'));
-        qs('close-password-modal').addEventListener('click', () => closeModal('password-modal'));
+        qs('close-password-modal').addEventListener('click', () => {
+            qs('password-modal').style.display = 'none';
+        });
         qs('save-password-btn').addEventListener('click', savePassword);
-
-        qs('close-auth-required-modal').addEventListener('click', () => closeModal('auth-required-modal'));
-        qs('close-user-detail-modal').addEventListener('click', () => closeModal('user-detail-modal'));
 
         qs('logout-btn').addEventListener('click', logout);
         qs('add-money-btn').addEventListener('click', () => qs('payment-modal').style.display = 'flex');
-        qs('close-payment-modal').addEventListener('click', () => closeModal('payment-modal'));
+        qs('close-payment-modal').addEventListener('click', () => qs('payment-modal').style.display = 'none');
+        qs('close-order-modal').addEventListener('click', closeOrderModal);
 
         qs('addFundsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1159,13 +1249,23 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Payment request submitted successfully', 'success', 6000);
-                closeModal('payment-modal');
+                qs('payment-modal').style.display = 'none';
                 e.target.reset();
             } catch (err) {
                 showToast(err.message, 'error');
             } finally {
                 resetLoading(btn);
             }
+        });
+
+        qs('check-otp-manual').addEventListener('click', async () => {
+            if (!activeOrder) return;
+            await pollOtp(activeOrder.id, false);
+        });
+
+        qs('copy-number-btn').addEventListener('click', () => {
+            const number = qs('order-number').innerText.trim();
+            if (number && number !== 'Processing...') copyText(number);
         });
 
         function openSupport() {
@@ -1184,6 +1284,17 @@
             document.body.classList.add('light');
         }
 
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.id !== 'contact-btn') {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    qs('hero-title').innerText = 'Available WhatsApp Numbers';
+                    closeSidebar();
+                });
+            }
+        });
+
         document.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
@@ -1196,11 +1307,10 @@
         qs('country-search').addEventListener('input', renderCountries);
 
         window.addEventListener('click', (e) => {
-            if (e.target === qs('payment-modal')) closeModal('payment-modal');
-            if (e.target === qs('password-modal')) closeModal('password-modal');
-            if (e.target === qs('profile-modal')) closeModal('profile-modal');
-            if (e.target === qs('auth-required-modal')) closeModal('auth-required-modal');
-            if (e.target === qs('user-detail-modal')) closeModal('user-detail-modal');
+            if (e.target === qs('payment-modal')) qs('payment-modal').style.display = 'none';
+            if (e.target === qs('order-modal')) closeOrderModal();
+            if (e.target === qs('processing-modal')) qs('processing-modal').style.display = 'none';
+            if (e.target === qs('password-modal')) qs('password-modal').style.display = 'none';
         });
 
         loadCountries();
