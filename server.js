@@ -60,6 +60,8 @@ function normalizeOrder(row) {
     return {
         ...row,
         price: Number(row.price || 0),
+        cost_price: row.cost_price == null ? null : Number(row.cost_price),
+        profit_amount: row.profit_amount == null ? null : Number(row.profit_amount),
         otp_received: row.otp_received
     };
 }
@@ -76,6 +78,22 @@ async function queryAll(sql, params = []) {
 
 async function queryRun(sql, params = []) {
     return pool.query(sql, params);
+}
+
+function pkrToUsd(pkr) {
+    return parseFloat((pkr / 280).toFixed(3));
+}
+
+function usdToPkr(usd) {
+    return parseFloat((usd * 280).toFixed(2));
+}
+
+function randomPassword() {
+    return crypto.randomBytes(24).toString('hex');
+}
+
+function waitMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function initDB() {
@@ -106,6 +124,10 @@ async function initDB() {
             country_code TEXT,
             country_id INTEGER,
             price NUMERIC(12,2),
+            cost_price NUMERIC(12,2),
+            profit_amount NUMERIC(12,2),
+            provider_id INTEGER,
+            search_strategy TEXT,
             payment_method TEXT,
             payment_status TEXT DEFAULT 'pending',
             order_status TEXT DEFAULT 'pending',
@@ -132,6 +154,11 @@ async function initDB() {
         )
     `);
 
+    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cost_price NUMERIC(12,2)`);
+    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS profit_amount NUMERIC(12,2)`);
+    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id INTEGER`);
+    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS search_strategy TEXT`);
+
     const admin = normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', ['admin@mrfotp.com']));
     if (!admin) {
         await queryRun(
@@ -157,37 +184,12 @@ async function createUser(name, email, password) {
     );
 }
 
-async function getPendingTransactions() {
-    const rows = await queryAll('SELECT * FROM transactions WHERE status = $1 ORDER BY id DESC', ['pending']);
-    return rows.map((row) => ({ ...row, amount: Number(row.amount || 0) }));
+async function updateUserLoginAttempts(userId, attempts) {
+    return queryRun('UPDATE users SET login_attempts = $1 WHERE id = $2', [attempts, userId]);
 }
 
-async function approveTransaction(txId) {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        const txRes = await client.query('SELECT * FROM transactions WHERE id = $1 FOR UPDATE', [txId]);
-        const tx = txRes.rows[0];
-        if (!tx) throw new Error('Transaction not found');
-
-        const userRes = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [tx.user_id]);
-        const user = userRes.rows[0];
-        if (!user) throw new Error('User not found');
-
-        await client.query('UPDATE transactions SET status = $1 WHERE id = $2', ['approved', txId]);
-        await client.query(
-            'UPDATE users SET balance = $1 WHERE id = $2',
-            [Number(user.balance || 0) + Number(tx.amount || 0), tx.user_id]
-        );
-
-        await client.query('COMMIT');
-    } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-    } finally {
-        client.release();
-    }
+async function updateUserLastLogin(userId) {
+    return queryRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
 }
 
 async function getOrdersByUser(userId) {
@@ -208,19 +210,6 @@ async function updateOrder(orderId, updates) {
     values.push(orderId);
 
     await queryRun(`UPDATE orders SET ${fields} WHERE id = $${values.length}`, values);
-}
-
-async function getAllOrders() {
-    const rows = await queryAll('SELECT * FROM orders ORDER BY id DESC');
-    return rows.map(normalizeOrder);
-}
-
-async function updateUserLoginAttempts(userId, attempts) {
-    return queryRun('UPDATE users SET login_attempts = $1 WHERE id = $2', [attempts, userId]);
-}
-
-async function updateUserLastLogin(userId) {
-    return queryRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
 }
 
 const SMSBOWER_API_KEY = process.env.SMSBOWER_API_KEY || 'CHANGE_THIS_API_KEY';
@@ -244,20 +233,8 @@ const countries = [
     { name: 'United Kingdom', code: '+44', price: 450, countryId: 16, flag: '🇬🇧' }
 ];
 
-function pkrToUsd(pkr) {
-    return parseFloat((pkr / 280).toFixed(3));
-}
-
-function randomPassword() {
-    return crypto.randomBytes(24).toString('hex');
-}
-
 function ensureGoogleConfigured() {
     return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL;
-}
-
-function waitMs(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function parseV1NumberResponse(text) {
@@ -353,11 +330,9 @@ async function fetchProviderTiers(countryId, serviceCode = 'wa') {
         providers = extractProvidersRecursive(serviceNode || data);
     }
 
-    providers = providers
+    return providers
         .filter((p) => Number.isFinite(p.provider_id) && Number.isFinite(p.price))
         .sort((a, b) => a.price - b.price);
-
-    return providers;
 }
 
 async function buyNumberFromProvider(countryId, provider, serviceCode = 'wa') {
@@ -402,7 +377,6 @@ async function buyNumberByTierStrategy(countryId, clientMaxUsd, serviceCode = 'w
 
         for (const provider of affordableProviders) {
             const startedAt = Date.now();
-            let lastError = 'No number from provider';
 
             while (Date.now() - startedAt < 15000) {
                 const result = await buyNumberFromProvider(countryId, provider, serviceCode);
@@ -417,7 +391,6 @@ async function buyNumberByTierStrategy(countryId, clientMaxUsd, serviceCode = 'w
                     };
                 }
 
-                lastError = result.error || lastError;
                 const elapsed = Date.now() - startedAt;
                 const remaining = 15000 - elapsed;
                 if (remaining <= 0) break;
@@ -478,11 +451,9 @@ async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
 
 async function getBestAvailableNumber(countryId, clientMaxUsd) {
     let result = await buyNumberByTierStrategy(countryId, clientMaxUsd, 'wa');
-
     if (!result.success && result.strategy === 'provider_unavailable') {
         result = await buyNumberWithRetry(countryId, clientMaxUsd, 3);
     }
-
     return result;
 }
 
@@ -536,9 +507,7 @@ app.get('/api/auth/google', (req, res) => {
 });
 
 app.get('/auth/google', (req, res) => {
-    if (!ensureGoogleConfigured()) {
-        return res.status(500).send('Google login not configured');
-    }
+    if (!ensureGoogleConfigured()) return res.status(500).send('Google login not configured');
 
     const state = crypto.randomBytes(16).toString('hex');
     req.session.google_oauth_state = state;
@@ -558,12 +527,9 @@ app.get('/auth/google', (req, res) => {
 
 app.get('/auth/google/callback', async (req, res) => {
     try {
-        if (!ensureGoogleConfigured()) {
-            return res.status(500).send('Google login not configured');
-        }
+        if (!ensureGoogleConfigured()) return res.status(500).send('Google login not configured');
 
         const { code, state, error } = req.query;
-
         if (error) return res.redirect('/?google_error=access_denied');
         if (!code || !state || state !== req.session.google_oauth_state) {
             return res.redirect('/?google_error=invalid_state');
@@ -587,9 +553,7 @@ app.get('/auth/google/callback', async (req, res) => {
         );
 
         const accessToken = tokenResponse.data.access_token;
-        if (!accessToken) {
-            return res.redirect('/?google_error=no_access_token');
-        }
+        if (!accessToken) return res.redirect('/?google_error=no_access_token');
 
         const profileResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -597,17 +561,11 @@ app.get('/auth/google/callback', async (req, res) => {
         });
 
         const profile = profileResponse.data;
-        if (!profile || !profile.email) {
-            return res.redirect('/?google_error=no_email');
-        }
+        if (!profile || !profile.email) return res.redirect('/?google_error=no_email');
 
         let user = await findUser(profile.email);
         if (!user) {
-            await createUser(
-                profile.name || profile.email.split('@')[0],
-                profile.email,
-                randomPassword()
-            );
+            await createUser(profile.name || profile.email.split('@')[0], profile.email, randomPassword());
             user = await findUser(profile.email);
         }
 
@@ -738,6 +696,9 @@ app.post('/api/order', ensureAuth, async (req, res) => {
             return res.status(500).send('No number available in current low-price tiers. Please try again.');
         }
 
+        const costPrice = result.provider_price != null ? usdToPkr(result.provider_price) : null;
+        const profitAmount = costPrice != null ? parseFloat((Number(price) - costPrice).toFixed(2)) : null;
+
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
         const cancelAvailableAt = new Date(now.getTime() + 1 * 60 * 1000).toISOString();
@@ -750,9 +711,10 @@ app.post('/api/order', ensureAuth, async (req, res) => {
         const inserted = await client.query(`
             INSERT INTO orders (
                 user_id, user_email, service_type, service_name, country, country_code, country_id, price,
+                cost_price, profit_amount, provider_id, search_strategy,
                 payment_method, order_status, phone_number, activation_id,
                 expires_at, cancel_available_at, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             RETURNING id
         `, [
             user.id,
@@ -763,6 +725,10 @@ app.post('/api/order', ensureAuth, async (req, res) => {
             countryObj.code,
             countryObj.countryId,
             price,
+            costPrice,
+            profitAmount,
+            result.provider_id || null,
+            result.strategy || null,
             'balance',
             'active',
             result.phoneNumber,
@@ -802,8 +768,7 @@ app.get('/api/orders/:orderId', ensureAuth, async (req, res) => {
 
 app.get('/api/orders', ensureAuth, async (req, res) => {
     try {
-        const userOrders = await getOrdersByUser(req.session.userId);
-        res.json(userOrders);
+        res.json(await getOrdersByUser(req.session.userId));
     } catch {
         res.status(500).send('Server error');
     }
@@ -816,7 +781,6 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user || order.user_id !== user.id) return res.status(403).send('Unauthorized');
-
         if (order.order_status !== 'active') return res.status(400).send('Cannot replace number now');
         if (order.otp_received) return res.status(400).send('OTP already received, cannot replace');
 
@@ -828,6 +792,9 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
         const clientMaxUsd = pkrToUsd(order.price);
         const result = await getBestAvailableNumber(order.country_id, clientMaxUsd);
         if (!result.success) return res.status(500).send('No replacement number available right now');
+
+        const costPrice = result.provider_price != null ? usdToPkr(result.provider_price) : null;
+        const profitAmount = costPrice != null ? parseFloat((Number(order.price) - costPrice).toFixed(2)) : null;
 
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
@@ -841,7 +808,11 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
             order_status: 'active',
             created_at: now.toISOString(),
             expires_at: expiresAt,
-            cancel_available_at: cancelAvailableAt
+            cancel_available_at: cancelAvailableAt,
+            cost_price: costPrice,
+            profit_amount: profitAmount,
+            provider_id: result.provider_id || null,
+            search_strategy: result.strategy || null
         });
 
         res.send('OK');
@@ -941,17 +912,13 @@ app.post('/api/orders/:orderId/expire', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user) return res.status(401).send('User not found');
-
-        if (order.user_id !== user.id && user.role !== 'admin') {
-            return res.status(403).send('Unauthorized');
-        }
+        if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
 
         if (order.order_status === 'active' && !order.otp_received) {
             try {
                 const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
                 await axios.get(cancelUrl, { timeout: 15000 });
             } catch {}
-
             await updateOrder(order.id, { order_status: 'cancelled' });
         }
 
@@ -968,18 +935,10 @@ app.get('/api/orders/:orderId/otp', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user) return res.status(401).send('User not found');
+        if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
 
-        if (order.user_id !== user.id && user.role !== 'admin') {
-            return res.status(403).send('Unauthorized');
-        }
-
-        if (order.otp_received) {
-            return res.json({ received: true, code: order.otp_code });
-        }
-
-        if (!order.activation_id) {
-            return res.json({ received: false, error: 'No activation ID' });
-        }
+        if (order.otp_received) return res.json({ received: true, code: order.otp_code });
+        if (!order.activation_id) return res.json({ received: false, error: 'No activation ID' });
 
         const now = new Date();
         const expiry = new Date(order.expires_at);
@@ -989,7 +948,6 @@ app.get('/api/orders/:orderId/otp', ensureAuth, async (req, res) => {
                 const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
                 await axios.get(cancelUrl, { timeout: 15000 });
             } catch {}
-
             await updateOrder(order.id, { order_status: 'cancelled' });
             return res.json({ received: false, expired: true });
         }
@@ -1005,20 +963,182 @@ app.get('/api/orders/:orderId/otp', ensureAuth, async (req, res) => {
             return res.json({ received: true, code: smsResult.code });
         }
 
-        if (smsResult.success && smsResult.waiting) {
-            return res.json({ received: false, waiting: true });
-        }
-
+        if (smsResult.success && smsResult.waiting) return res.json({ received: false, waiting: true });
         return res.json({ received: false, error: true });
     } catch {
         res.status(500).json({ received: false, error: true });
     }
 });
 
+app.get('/api/admin/overview', ensureAdmin, async (req, res) => {
+    try {
+        const userStats = await queryOne(`
+            SELECT
+                COUNT(*) FILTER (WHERE role = 'user')::int AS total_users,
+                COUNT(*) FILTER (WHERE role = 'user' AND is_active = TRUE)::int AS active_users,
+                COALESCE(SUM(CASE WHEN role = 'user' THEN balance ELSE 0 END), 0) AS total_user_balances
+            FROM users
+        `);
+
+        const orderStats = await queryOne(`
+            SELECT
+                COUNT(*)::int AS total_orders,
+                COUNT(*) FILTER (WHERE order_status = 'completed')::int AS completed_orders,
+                COUNT(*) FILTER (WHERE order_status = 'cancelled')::int AS cancelled_orders,
+                COUNT(*) FILTER (WHERE order_status IN ('active', 'otp_received'))::int AS live_orders,
+                COUNT(*) FILTER (WHERE cost_price IS NOT NULL)::int AS tracked_cost_orders,
+                COALESCE(SUM(CASE WHEN order_status <> 'cancelled' THEN price ELSE 0 END), 0) AS collected_sales,
+                COALESCE(SUM(CASE WHEN order_status = 'cancelled' THEN price ELSE 0 END), 0) AS refunded_sales,
+                COALESCE(SUM(CASE WHEN order_status <> 'cancelled' THEN cost_price ELSE 0 END), 0) AS total_cost,
+                COALESCE(SUM(CASE WHEN order_status <> 'cancelled' THEN profit_amount ELSE 0 END), 0) AS total_profit
+            FROM orders
+        `);
+
+        const transactionStats = await queryOne(`
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+                COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) AS approved_deposits,
+                COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_deposits
+            FROM transactions
+        `);
+
+        res.json({
+            totalUsers: Number(userStats.total_users || 0),
+            activeUsers: Number(userStats.active_users || 0),
+            totalUserBalances: Number(userStats.total_user_balances || 0),
+            totalOrders: Number(orderStats.total_orders || 0),
+            completedOrders: Number(orderStats.completed_orders || 0),
+            cancelledOrders: Number(orderStats.cancelled_orders || 0),
+            liveOrders: Number(orderStats.live_orders || 0),
+            trackedCostOrders: Number(orderStats.tracked_cost_orders || 0),
+            collectedSales: Number(orderStats.collected_sales || 0),
+            refundedSales: Number(orderStats.refunded_sales || 0),
+            totalCost: Number(orderStats.total_cost || 0),
+            totalProfit: Number(orderStats.total_profit || 0),
+            pendingPayments: Number(transactionStats.pending_count || 0),
+            approvedDeposits: Number(transactionStats.approved_deposits || 0),
+            pendingDeposits: Number(transactionStats.pending_deposits || 0),
+            netPosition: Number(transactionStats.approved_deposits || 0) - Number(userStats.total_user_balances || 0)
+        });
+    } catch {
+        res.status(500).send('Server error');
+    }
+});
+
+app.get('/api/admin/users', ensureAdmin, async (req, res) => {
+    try {
+        const rows = await queryAll(`
+            SELECT
+                u.id,
+                u.name,
+                u.email,
+                u.balance,
+                u.is_active,
+                u.last_login,
+                u.created_at,
+                COALESCE(tx.approved_total, 0) AS approved_total,
+                COALESCE(tx.pending_total, 0) AS pending_total,
+                COALESCE(ord.total_orders, 0) AS total_orders,
+                COALESCE(ord.completed_orders, 0) AS completed_orders,
+                COALESCE(ord.live_orders, 0) AS live_orders,
+                COALESCE(ord.cancelled_orders, 0) AS cancelled_orders,
+                COALESCE(ord.total_spent, 0) AS total_spent,
+                COALESCE(ord.tracked_profit, 0) AS tracked_profit
+            FROM users u
+            LEFT JOIN (
+                SELECT
+                    user_id,
+                    SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END) AS approved_total,
+                    SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS pending_total
+                FROM transactions
+                GROUP BY user_id
+            ) tx ON tx.user_id = u.id
+            LEFT JOIN (
+                SELECT
+                    user_id,
+                    COUNT(*) AS total_orders,
+                    COUNT(*) FILTER (WHERE order_status = 'completed') AS completed_orders,
+                    COUNT(*) FILTER (WHERE order_status IN ('active', 'otp_received')) AS live_orders,
+                    COUNT(*) FILTER (WHERE order_status = 'cancelled') AS cancelled_orders,
+                    SUM(CASE WHEN order_status <> 'cancelled' THEN price ELSE 0 END) AS total_spent,
+                    SUM(CASE WHEN order_status <> 'cancelled' THEN COALESCE(profit_amount, 0) ELSE 0 END) AS tracked_profit
+                FROM orders
+                GROUP BY user_id
+            ) ord ON ord.user_id = u.id
+            WHERE u.role = 'user'
+            ORDER BY u.created_at DESC
+        `);
+
+        res.json(rows.map((row) => ({
+            ...row,
+            balance: Number(row.balance || 0),
+            approved_total: Number(row.approved_total || 0),
+            pending_total: Number(row.pending_total || 0),
+            total_spent: Number(row.total_spent || 0),
+            tracked_profit: Number(row.tracked_profit || 0)
+        })));
+    } catch {
+        res.status(500).send('Server error');
+    }
+});
+
+app.get('/api/admin/users/:userId/detail', ensureAdmin, async (req, res) => {
+    try {
+        const userId = Number(req.params.userId);
+        const user = await queryOne(`
+            SELECT id, name, email, balance, is_active, last_login, created_at, referral_code
+            FROM users
+            WHERE id = $1
+        `, [userId]);
+
+        if (!user) return res.status(404).send('User not found');
+
+        const orders = await queryAll(`
+            SELECT *
+            FROM orders
+            WHERE user_id = $1
+            ORDER BY id DESC
+        `, [userId]);
+
+        const transactions = await queryAll(`
+            SELECT *
+            FROM transactions
+            WHERE user_id = $1
+            ORDER BY id DESC
+        `, [userId]);
+
+        res.json({
+            user: {
+                ...user,
+                balance: Number(user.balance || 0),
+                referralCode: user.referral_code
+            },
+            orders: orders.map(normalizeOrder),
+            transactions: transactions.map((row) => ({
+                ...row,
+                amount: Number(row.amount || 0)
+            }))
+        });
+    } catch {
+        res.status(500).send('Server error');
+    }
+});
+
 app.get('/api/admin/orders', ensureAdmin, async (req, res) => {
     try {
-        const allOrders = await getAllOrders();
-        res.json(allOrders);
+        const rows = await queryAll(`
+            SELECT
+                o.*,
+                u.name AS user_name
+            FROM orders o
+            LEFT JOIN users u ON u.id = o.user_id
+            ORDER BY o.id DESC
+        `);
+
+        res.json(rows.map((row) => ({
+            ...normalizeOrder(row),
+            user_name: row.user_name
+        })));
     } catch {
         res.status(500).send('Server error');
     }
@@ -1026,8 +1146,20 @@ app.get('/api/admin/orders', ensureAdmin, async (req, res) => {
 
 app.get('/api/admin/transactions', ensureAdmin, async (req, res) => {
     try {
-        const pending = await getPendingTransactions();
-        res.json(pending);
+        const rows = await queryAll(`
+            SELECT
+                t.*,
+                u.name AS user_name
+            FROM transactions t
+            LEFT JOIN users u ON u.id = t.user_id
+            WHERE t.status = 'pending'
+            ORDER BY t.id DESC
+        `);
+
+        res.json(rows.map((row) => ({
+            ...row,
+            amount: Number(row.amount || 0)
+        })));
     } catch {
         res.status(500).send('Server error');
     }
@@ -1035,7 +1167,8 @@ app.get('/api/admin/transactions', ensureAdmin, async (req, res) => {
 
 app.post('/api/admin/transactions/:txId/approve', ensureAdmin, async (req, res) => {
     try {
-        await approveTransaction(Number(req.params.txId));
+        const txId = Number(req.params.txId);
+        await approveTransaction(txId);
         res.send('OK');
     } catch {
         res.status(404).send('Transaction not found');
