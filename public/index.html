@@ -10,57 +10,44 @@
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         :root{
-            --bg:#07111f;--bg-2:#0b1728;--panel:rgba(13,25,45,.88);--panel-2:rgba(17,34,59,.95);
+            --bg:#07111f;--bg-2:#0b1728;--panel:rgba(13,25,45,.88);--panel-2:rgba(17,34,59,.96);
             --card:rgba(255,255,255,.06);--card-2:rgba(255,255,255,.08);--border:rgba(255,255,255,.10);
             --text:#e7edf7;--muted:#90a0ba;--primary:#31d968;--primary-2:#1fc857;--danger:#ef4444;
-            --warning:#f59e0b;--info:#38bdf8;--shadow:0 20px 60px rgba(0,0,0,.32);
+            --warning:#f59e0b;--info:#38bdf8;--shadow:0 20px 60px rgba(0,0,0,.32)
         }
         body.light{
             --bg:#eef4ff;--bg-2:#dfeaff;--panel:rgba(255,255,255,.94);--panel-2:rgba(255,255,255,.98);
             --card:rgba(12,22,40,.04);--card-2:rgba(12,22,40,.06);--border:rgba(15,23,42,.10);
-            --text:#0f172a;--muted:#64748b;--shadow:0 20px 60px rgba(15,23,42,.12);
+            --text:#0f172a;--muted:#64748b;--shadow:0 20px 60px rgba(15,23,42,.12)
         }
         body{
             min-height:100vh;font-family:'Inter',sans-serif;color:var(--text);
             background:radial-gradient(circle at top left, rgba(34,197,94,.16), transparent 28%),
             radial-gradient(circle at top right, rgba(56,189,248,.14), transparent 24%),
-            linear-gradient(140deg,var(--bg),var(--bg-2));
+            linear-gradient(140deg,var(--bg),var(--bg-2))
         }
         body::before{
-            content:"";position:fixed;inset:0;
+            content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
             background-image:linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
-            background-size:28px 28px;pointer-events:none;z-index:0;
+            background-size:28px 28px
         }
         .app-shell{position:relative;z-index:1;padding:18px}
         .dashboard{display:grid;grid-template-columns:280px 1fr 360px;gap:18px;min-height:calc(100vh - 36px)}
-        .glass{background:var(--panel);backdrop-filter: blur(18px);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:28px}
+        .glass{background:var(--panel);backdrop-filter:blur(18px);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:28px}
         .sidebar{padding:20px;display:flex;flex-direction:column;gap:18px;position:sticky;top:18px;max-height:calc(100vh - 36px)}
-        .brand{
-            display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;
-            background:linear-gradient(145deg, rgba(74,222,128,.14), rgba(56,189,248,.10));border:1px solid rgba(255,255,255,.12)
-        }
-        .brand-mark{
-            width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-size:26px;font-weight:800;
-            background:linear-gradient(135deg,#31d968,#1fc857);color:#04210f;box-shadow:0 12px 28px rgba(34,197,94,.28)
-        }
+        .brand{display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;background:linear-gradient(145deg, rgba(74,222,128,.14), rgba(56,189,248,.10));border:1px solid rgba(255,255,255,.12)}
+        .brand-mark{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-size:26px;font-weight:800;background:linear-gradient(135deg,#31d968,#1fc857);color:#04210f;box-shadow:0 12px 28px rgba(34,197,94,.28)}
         .brand h1{font-size:18px;font-weight:800;line-height:1.1}
         .brand p{margin-top:4px;color:var(--muted);font-size:12px}
         .nav-card{padding:14px;border-radius:24px;background:var(--card);border:1px solid var(--border)}
         .nav-label{color:var(--muted);font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px;padding:0 10px}
-        .nav-item{
-            display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:18px;border:1px solid transparent;
-            background:transparent;color:var(--text);cursor:pointer;transition:.25s ease;font-size:15px;font-weight:600;
-        }
+        .nav-item{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:18px;border:1px solid transparent;background:transparent;color:var(--text);cursor:pointer;transition:.25s ease;font-size:15px;font-weight:600}
         .nav-item:hover{background:var(--card-2);border-color:var(--border);transform:translateY(-1px)}
         .nav-item.active{background:linear-gradient(135deg, rgba(74,222,128,.20), rgba(56,189,248,.18));border-color:rgba(74,222,128,.22)}
         .nav-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(255,255,255,.07);font-size:18px;flex-shrink:0}
         .main{padding:18px;overflow:hidden}
-        .hero{
-            display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px;padding:22px;border-radius:28px;
-            background:radial-gradient(circle at top right, rgba(74,222,128,.18), transparent 28%), linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-            border:1px solid var(--border);
-        }
+        .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:18px;padding:22px;border-radius:28px;background:radial-gradient(circle at top right, rgba(74,222,128,.18), transparent 28%), linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.02));border:1px solid var(--border)}
         .hero h2{font-size:30px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px}
         .hero p{color:var(--muted);line-height:1.65;max-width:760px}
         .hero-badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
@@ -69,21 +56,20 @@
         .mini-stat{padding:16px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid var(--border)}
         .mini-stat .label{color:var(--muted);font-size:12px;margin-bottom:8px}
         .mini-stat .value{font-size:24px;font-weight:800}
-        .toolbar{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:18px;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border)}
+        .main-topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+        .toolbar{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:16px;border-radius:24px;background:var(--card);border:1px solid var(--border);flex:1}
         .search-wrap{display:flex;align-items:center;gap:10px;flex:1;padding:14px 16px;border-radius:18px;border:1px solid var(--border);background:rgba(255,255,255,.04)}
         .search-wrap input{flex:1;border:none;outline:none;background:transparent;color:var(--text);font-size:14px}
         .search-wrap input::placeholder{color:var(--muted)}
         .toolbar-actions{display:flex;gap:10px;flex-wrap:wrap}
         .chip{padding:12px 14px;border-radius:16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);font-weight:600;font-size:13px;cursor:pointer;transition:.2s ease}
         .chip:hover,.chip.active{border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.14)}
+        .profile-btn{display:none;align-items:center;justify-content:center;width:56px;height:56px;border-radius:18px;border:1px solid var(--border);background:linear-gradient(135deg,rgba(74,222,128,.16),rgba(56,189,248,.16));cursor:pointer;color:var(--text);font-weight:800;font-size:18px}
         .section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
         .section-title h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
         .section-title p{font-size:13px;color:var(--muted)}
         .country-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-        .country-card{
-            position:relative;overflow:hidden;padding:18px;border-radius:24px;background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-            border:1px solid var(--border);transition:.25s ease;box-shadow:0 14px 40px rgba(0,0,0,.18)
-        }
+        .country-card{position:relative;overflow:hidden;padding:18px;border-radius:24px;background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.03));border:1px solid var(--border);transition:.25s ease;box-shadow:0 14px 40px rgba(0,0,0,.18)}
         .country-card:hover{transform:translateY(-4px);border-color:rgba(74,222,128,.22);box-shadow:0 22px 50px rgba(0,0,0,.24)}
         .country-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
         .country-flag{width:54px;height:54px;display:grid;place-items:center;font-size:28px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid var(--border)}
@@ -104,10 +90,7 @@
         .btn-google{width:100%;padding:14px 18px;border-radius:18px;background:#fff;color:#111827;border:1px solid #d1d5db;font-weight:700}
         .right-panel{padding:18px;display:flex;flex-direction:column;gap:16px;position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto}
         .panel-block{padding:18px;border-radius:24px;background:var(--card);border:1px solid var(--border)}
-        .top-auth-card{
-            padding:18px;border-radius:26px;background:radial-gradient(circle at top left, rgba(74,222,128,.18), transparent 25%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-            border:1px solid var(--border)
-        }
+        .top-auth-card{padding:18px;border-radius:26px;background:radial-gradient(circle at top left, rgba(74,222,128,.18), transparent 25%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));border:1px solid var(--border)}
         .top-auth-card h3{font-size:20px;font-weight:800;margin-bottom:8px}
         .top-auth-card p{color:var(--muted);line-height:1.6;font-size:14px}
         .auth-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid var(--border);margin:18px 0}
@@ -118,10 +101,7 @@
         .input-wrap input{flex:1;border:none;background:transparent;outline:none;color:var(--text);font-size:14px}
         .input-wrap input::placeholder{color:var(--muted)}
         .sub-text{margin-top:4px;font-size:12px;color:var(--muted);line-height:1.5}
-        .balance-card{
-            padding:22px;border-radius:26px;background:radial-gradient(circle at top right, rgba(74,222,128,.20), transparent 30%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
-            border:1px solid var(--border)
-        }
+        .balance-card{padding:22px;border-radius:26px;background:radial-gradient(circle at top right, rgba(74,222,128,.20), transparent 30%), linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.03));border:1px solid var(--border)}
         .balance-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
         .balance-top .label{color:var(--muted);font-size:13px;margin-bottom:8px}
         .balance-amount{font-size:38px;font-weight:800;letter-spacing:-.05em;color:var(--primary);line-height:1}
@@ -136,21 +116,19 @@
         .order-actions{display:flex;gap:8px;flex-wrap:wrap}
         .mini-btn{padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:12px;font-weight:700}
         .admin-panel{display:none;margin-top:18px;padding:18px;border-radius:26px;background:var(--card);border:1px solid var(--border)}
-        .admin-panel h3{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:20px;font-weight:800}
+        .notif-bar{display:none;padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;font-weight:800;animation:pulse 1s infinite;margin-bottom:12px}
         .badge{min-width:22px;height:22px;border-radius:999px;display:inline-grid;place-items:center;padding:0 8px;background:linear-gradient(135deg,#fb7185,#ef4444);color:#fff;font-size:11px;font-weight:800}
-        .admin-grid{display:grid;grid-template-columns:1fr;gap:16px}
-        .admin-section{padding:16px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--border)}
-        .admin-section h4{font-size:15px;margin-bottom:12px}
+        .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+        .metric-card{padding:16px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+        .metric-label{font-size:12px;color:var(--muted);margin-bottom:8px}
+        .metric-value{font-size:24px;font-weight:800}
         .admin-card{padding:14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--border);margin-bottom:10px}
         .admin-meta{color:var(--muted);font-size:13px;line-height:1.6;margin:8px 0 12px}
         .admin-actions{display:flex;gap:8px;flex-wrap:wrap}
-        .account-card{padding:18px;border-radius:24px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
-        .account-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-        .account-row:last-child{border-bottom:none}
-        .account-label{color:var(--muted);font-size:13px}
-        .account-value{font-weight:700;text-align:right;word-break:break-all}
-        .modal{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);backdrop-filter: blur(4px);z-index:3000;padding:18px;justify-content:center;align-items:center}
-        .modal-content{width:min(720px,100%);max-height:92vh;overflow:auto;border-radius:28px;background:var(--panel-2);border:1px solid var(--border);box-shadow:var(--shadow);padding:22px}
+        .admin-section{padding:16px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--border);margin-top:14px}
+        .admin-section h4{font-size:16px;margin-bottom:12px}
+        .modal{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);backdrop-filter:blur(4px);z-index:3000;padding:18px;justify-content:center;align-items:center}
+        .modal-content{width:min(760px,100%);max-height:92vh;overflow:auto;border-radius:28px;background:var(--panel-2);border:1px solid var(--border);box-shadow:var(--shadow);padding:22px}
         .modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
         .modal-header h3{font-size:24px;font-weight:800;letter-spacing:-.03em}
         .modal-header p{color:var(--muted);margin-top:6px;font-size:14px}
@@ -183,18 +161,23 @@
         .button-group{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
         .button-group .btn{padding:14px 16px;border-radius:18px}
         .wide-btn{width:100%;margin-top:12px;padding:14px 16px;border-radius:18px}
+        .profile-grid{display:grid;grid-template-columns:1fr;gap:12px}
+        .profile-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+        .profile-row:last-child{border-bottom:none}
+        .profile-label{color:var(--muted);font-size:13px}
+        .profile-value{font-weight:700;word-break:break-all;text-align:right}
+        .detail-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
         .toast-wrap{position:fixed;right:18px;bottom:18px;z-index:5000;display:flex;flex-direction:column;gap:10px}
-        .toast{min-width:280px;max-width:380px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.14);box-shadow:var(--shadow);backdrop-filter: blur(16px);color:#fff;animation:slideUp .25s ease}
+        .toast{min-width:280px;max-width:380px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.14);box-shadow:var(--shadow);backdrop-filter:blur(16px);color:#fff;animation:slideUp .25s ease}
         .toast.success{background:rgba(34,197,94,.95)}
         .toast.error{background:rgba(239,68,68,.95)}
         .toast.info{background:rgba(56,189,248,.95)}
         .topbar-mobile{display:none;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
         .topbar-brand{font-size:20px;font-weight:800;letter-spacing:.02em}
-        .icon-btn{width:46px;height:46px;border-radius:16px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter: blur(18px);cursor:pointer}
+        .icon-btn{width:46px;height:46px;border-radius:16px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter:blur(18px);cursor:pointer}
         .sidebar-overlay{display:none;position:fixed;inset:0;background:transparent;z-index:2000}
-        .theme-toggle{position:fixed;right:18px;top:18px;z-index:2500;padding:12px 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter: blur(18px);cursor:pointer;font-weight:700}
+        .theme-toggle{position:fixed;right:18px;top:18px;z-index:2500;padding:12px 16px;border-radius:18px;border:1px solid var(--border);background:var(--panel);color:var(--text);backdrop-filter:blur(18px);cursor:pointer;font-weight:700}
         .hidden{display:none!important}
-        .notif-bar{display:none;padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;font-weight:800;animation:pulse 1s infinite;margin-bottom:12px}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
         @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.01)}100%{transform:scale(1)}}
@@ -205,10 +188,7 @@
         }
         @media (max-width:920px){
             .dashboard{grid-template-columns:1fr}
-            .sidebar{
-                position:fixed;left:18px;top:18px;bottom:18px;width:min(320px,calc(100vw - 36px));
-                transform:translateX(-120%);transition:.25s ease;z-index:2200;max-height:none;
-            }
+            .sidebar{position:fixed;left:18px;top:18px;bottom:18px;width:min(320px,calc(100vw - 36px));transform:translateX(-120%);transition:.25s ease;z-index:2200;max-height:none}
             .sidebar.open{transform:translateX(0)}
             .sidebar-overlay.show{display:block}
             .topbar-mobile{display:flex}
@@ -216,6 +196,8 @@
             .hero{flex-direction:column}
             .hero-stats{width:100%;grid-template-columns:repeat(2,1fr)}
             .payment-grid,.timeline,.button-group,.action-row{grid-template-columns:1fr}
+            .main-topbar{flex-direction:column;align-items:stretch}
+            .profile-btn{align-self:flex-end}
             .right-panel{order:1}
             .main{order:2}
         }
@@ -243,7 +225,7 @@
         <div class="topbar-mobile">
             <button class="icon-btn" id="hamburger">☰</button>
             <div class="topbar-brand">MRF SMS</div>
-            <button class="icon-btn hidden" id="contact-btn-mobile">💬</button>
+            <button class="icon-btn hidden" id="mobile-profile-btn">👤</button>
         </div>
 
         <div class="dashboard">
@@ -273,7 +255,7 @@
                 <section class="hero">
                     <div>
                         <h2 id="hero-title">Available WhatsApp Numbers</h2>
-                        <p>Lowest-price providers pehle try honge. Kabhi kabhi search ko 15 to 75 seconds lag sakte hain, please wait calmly.</p>
+                        <p>Lowest-price available search pehle hoti hai. Kabhi kabhi search ko thora wait lag sakta hai, is liye please calmly wait karein.</p>
                         <div class="hero-badges">
                             <div class="hero-badge">Auto OTP Check</div>
                             <div class="hero-badge">Manual OTP Button</div>
@@ -293,16 +275,19 @@
                     </div>
                 </section>
 
-                <section class="toolbar">
-                    <div class="search-wrap">
-                        <span>🔎</span>
-                        <input type="text" id="country-search" placeholder="Search country name..." />
+                <section class="main-topbar">
+                    <div class="toolbar">
+                        <div class="search-wrap">
+                            <span>🔎</span>
+                            <input type="text" id="country-search" placeholder="Search country name..." />
+                        </div>
+                        <div class="toolbar-actions">
+                            <button class="chip active" data-filter="all">All</button>
+                            <button class="chip" data-filter="cheap">Budget</button>
+                            <button class="chip" data-filter="premium">Premium</button>
+                        </div>
                     </div>
-                    <div class="toolbar-actions">
-                        <button class="chip active" data-filter="all">All</button>
-                        <button class="chip" data-filter="cheap">Budget</button>
-                        <button class="chip" data-filter="premium">Premium</button>
-                    </div>
+                    <button class="profile-btn" id="open-profile-btn">👤</button>
                 </section>
 
                 <section>
@@ -317,16 +302,30 @@
 
                 <section id="admin-panel" class="admin-panel">
                     <div class="notif-bar" id="notif-bar">⚠️ New pending payment received. Please approve now.</div>
-                    <h3>Admin Panel <span id="payment-badge" class="badge hidden">0</span></h3>
-                    <div class="admin-grid">
-                        <div class="admin-section">
-                            <h4>All Orders</h4>
-                            <div id="admin-orders-list"></div>
+
+                    <div class="section-title">
+                        <div>
+                            <h3>Admin Control Center</h3>
+                            <p>Profit, users, deposits, orders and balances in one place.</p>
                         </div>
-                        <div class="admin-section">
-                            <h4>Pending Transactions</h4>
-                            <div id="admin-transactions-list"></div>
-                        </div>
+                        <div id="payment-badge" class="badge hidden">0</div>
+                    </div>
+
+                    <div class="metrics-grid" id="admin-overview-cards"></div>
+
+                    <div class="admin-section">
+                        <h4>Users Directory</h4>
+                        <div id="admin-users-list"></div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h4>Orders Intelligence</h4>
+                        <div id="admin-orders-list"></div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h4>Pending Transactions</h4>
+                        <div id="admin-transactions-list"></div>
                     </div>
                 </section>
             </main>
@@ -393,34 +392,6 @@
                         </div>
                     </div>
 
-                    <div class="account-card">
-                        <div class="section-title" style="margin-bottom:10px;">
-                            <div>
-                                <h3 style="font-size:18px;">Account Details</h3>
-                                <p>Professional profile section</p>
-                            </div>
-                        </div>
-
-                        <div class="account-row">
-                            <div class="account-label">Full Name</div>
-                            <div class="account-value" id="account-name">-</div>
-                        </div>
-                        <div class="account-row">
-                            <div class="account-label">Email / Gmail</div>
-                            <div class="account-value" id="account-email">-</div>
-                        </div>
-                        <div class="account-row">
-                            <div class="account-label">Password</div>
-                            <div class="account-value" id="account-password">********</div>
-                        </div>
-                        <div class="account-row">
-                            <div class="account-label">Referral Code</div>
-                            <div class="account-value" id="account-referral">-</div>
-                        </div>
-
-                        <button class="btn btn-soft wide-btn" id="open-password-modal">Change Password</button>
-                    </div>
-
                     <div class="panel-block">
                         <div class="section-title">
                             <div>
@@ -440,13 +411,99 @@
             <div class="processing-wrap">
                 <div class="ring"></div>
                 <h3 style="font-size:26px;font-weight:800;margin-bottom:10px;">Searching Number</h3>
-                <p style="color:var(--muted);line-height:1.7;">Please wait. Hum sab se low-price available provider se start kar rahe hain. Is process ko 15 se 75 seconds lag sakte hain.</p>
+                <p style="color:var(--muted);line-height:1.7;">Please wait. Best available low-price number search ho raha hai.</p>
             </div>
         </div>
     </div>
 
+    <div id="auth-required-modal" class="modal">
+        <div class="modal-content" style="max-width:560px;">
+            <div class="modal-header">
+                <div>
+                    <h3>Login Required</h3>
+                    <p>Number buy karne ke liye pehle login ya sign up karein.</p>
+                </div>
+                <button class="close-x" id="close-auth-required-modal">✕</button>
+            </div>
+
+            <div class="auth-switch">
+                <button class="auth-tab active" id="modal-show-login-tab">Login</button>
+                <button class="auth-tab" id="modal-show-register-tab">Sign Up</button>
+            </div>
+
+            <div id="modal-login-wrap">
+                <div class="auth-form">
+                    <div class="input-wrap">
+                        <span>📧</span>
+                        <input type="email" id="modal-login-email" placeholder="Email address">
+                    </div>
+                    <div class="input-wrap">
+                        <span>🔐</span>
+                        <input type="password" id="modal-login-password" placeholder="Password">
+                    </div>
+                    <button class="btn btn-primary" id="modal-login-btn">Login</button>
+                </div>
+            </div>
+
+            <div id="modal-register-wrap" class="hidden">
+                <div class="auth-form">
+                    <div class="input-wrap">
+                        <span>👤</span>
+                        <input type="text" id="modal-reg-name" placeholder="Full name">
+                    </div>
+                    <div class="input-wrap">
+                        <span>📧</span>
+                        <input type="email" id="modal-reg-email" placeholder="Email address">
+                    </div>
+                    <div class="input-wrap">
+                        <span>🔒</span>
+                        <input type="password" id="modal-reg-password" placeholder="Password">
+                    </div>
+                    <button class="btn btn-primary" id="modal-register-btn">Create Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="profile-modal" class="modal">
+        <div class="modal-content" style="max-width:620px;">
+            <div class="modal-header">
+                <div>
+                    <h3>My Account</h3>
+                    <p>Your account details are hidden until you open this profile panel.</p>
+                </div>
+                <button class="close-x" id="close-profile-modal">✕</button>
+            </div>
+
+            <div class="profile-grid">
+                <div class="profile-row">
+                    <div class="profile-label">Full Name</div>
+                    <div class="profile-value" id="profile-name">-</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Email / Gmail</div>
+                    <div class="profile-value" id="profile-email">-</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Password</div>
+                    <div class="profile-value" id="profile-password">********</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Referral Code</div>
+                    <div class="profile-value" id="profile-referral">-</div>
+                </div>
+                <div class="profile-row">
+                    <div class="profile-label">Current Balance</div>
+                    <div class="profile-value" id="profile-balance">0 PKR</div>
+                </div>
+            </div>
+
+            <button class="btn btn-soft wide-btn" id="open-password-modal">Change Password</button>
+        </div>
+    </div>
+
     <div id="password-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:560px;">
             <div class="modal-header">
                 <div>
                     <h3>Change Password</h3>
@@ -508,6 +565,20 @@
                 </div>
                 <button type="submit" id="submit-payment-btn" class="btn btn-primary wide-btn">Submit Payment</button>
             </form>
+        </div>
+    </div>
+
+    <div id="user-detail-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3>User Detail</h3>
+                    <p>Separate detail view for one client.</p>
+                </div>
+                <button class="close-x" id="close-user-detail-modal">✕</button>
+            </div>
+
+            <div id="user-detail-body"></div>
         </div>
     </div>
 
@@ -606,6 +677,8 @@
         const overlay = document.getElementById('sidebar-overlay');
         const hamburger = document.getElementById('hamburger');
 
+        function qs(id) { return document.getElementById(id); }
+
         function openSidebar() {
             sidebar.classList.add('open');
             overlay.classList.add('show');
@@ -620,15 +693,13 @@
         overlay.addEventListener('click', closeSidebar);
 
         function showToast(message, type = 'info', duration = 4000) {
-            const wrap = document.getElementById('toast-wrap');
+            const wrap = qs('toast-wrap');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
             wrap.appendChild(toast);
             setTimeout(() => toast.remove(), duration);
         }
-
-        function qs(id) { return document.getElementById(id); }
 
         function setLoading(button, text) {
             button.dataset.original = button.innerHTML;
@@ -649,8 +720,13 @@
             return res.json();
         }
 
-        function formatRelativeTime(dateString) {
-            return new Date(dateString).toLocaleString();
+        function formatMoney(value) {
+            return `${Number(value || 0).toFixed(2)} PKR`;
+        }
+
+        function formatDate(value) {
+            if (!value) return '-';
+            return new Date(value).toLocaleString();
         }
 
         function copyText(text) {
@@ -684,6 +760,18 @@
             if (adminAlertInterval) clearInterval(adminAlertInterval);
             adminAlertInterval = null;
             qs('notif-bar').style.display = 'none';
+        }
+
+        function openProfileModal() {
+            qs('profile-modal').style.display = 'flex';
+        }
+
+        function openAuthRequiredModal() {
+            qs('auth-required-modal').style.display = 'flex';
+        }
+
+        function closeModal(id) {
+            qs(id).style.display = 'none';
         }
 
         function renderCountries() {
@@ -738,7 +826,7 @@
 
         async function orderCountry(name, price, id) {
             if (!currentUser) {
-                showToast('Please login first', 'error');
+                openAuthRequiredModal();
                 return;
             }
 
@@ -779,7 +867,7 @@
             qs('order-country-title').innerText = `${order.country} • WhatsApp`;
             qs('order-status-pill').innerText = (order.order_status || 'active').replace('_', ' ').toUpperCase();
             qs('order-price-pill').innerText = `${order.price} PKR`;
-            qs('order-created-pill').innerText = formatRelativeTime(order.created_at);
+            qs('order-created-pill').innerText = formatDate(order.created_at);
             qs('order-number').innerText = order.phone_number || 'Processing...';
 
             const otpBox = qs('order-otp');
@@ -825,9 +913,13 @@
                     <button class="btn btn-soft" id="close-order-btn-inline">Close</button>
                     <button class="btn btn-info" id="copy-otp-btn">Copy OTP</button>
                 `;
+
                 qs('complete-order-btn').addEventListener('click', async () => {
                     try {
-                        const res = await fetch(`/api/orders/${order.id}/complete`, { method: 'POST', credentials: 'include' });
+                        const res = await fetch(`/api/orders/${order.id}/complete`, {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
                         if (!res.ok) throw new Error(await res.text());
                         showToast('Order completed', 'success');
                         closeOrderModal();
@@ -836,6 +928,7 @@
                         showToast(err.message, 'error');
                     }
                 });
+
                 qs('close-order-btn-inline').addEventListener('click', closeOrderModal);
                 qs('copy-otp-btn').addEventListener('click', () => copyText(order.otp_code));
                 return;
@@ -858,7 +951,10 @@
             qs('replace-order-btn').addEventListener('click', async () => {
                 if (!confirm('Replace current number?')) return;
                 try {
-                    const res = await fetch(`/api/orders/${order.id}/replace`, { method: 'POST', credentials: 'include' });
+                    const res = await fetch(`/api/orders/${order.id}/replace`, {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
                     if (!res.ok) throw new Error(await res.text());
                     showToast('Number replaced', 'success');
                     openOrderModal(order.id);
@@ -872,7 +968,10 @@
                 qs('cancel-order-btn').addEventListener('click', async () => {
                     if (!confirm('Cancel order and refund amount?')) return;
                     try {
-                        const res = await fetch(`/api/orders/${order.id}/cancel`, { method: 'POST', credentials: 'include' });
+                        const res = await fetch(`/api/orders/${order.id}/cancel`, {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
                         if (!res.ok) throw new Error(await res.text());
                         showToast('Order cancelled', 'success');
                         closeOrderModal();
@@ -961,17 +1060,23 @@
             activeOrder = null;
         }
 
+        function renderProfile(user) {
+            qs('profile-name').innerText = user.name || '-';
+            qs('profile-email').innerText = user.email || '-';
+            qs('profile-password').innerText = user.maskedPassword || '********';
+            qs('profile-referral').innerText = user.referralCode || '-';
+            qs('profile-balance').innerText = `${Number(user.balance || 0)} PKR`;
+        }
+
         async function refreshUserInfo() {
             if (!currentUser) return;
 
             try {
                 const user = await fetchJSON('/api/me');
                 currentUser = user;
+
                 qs('user-balance').innerText = user.balance;
-                qs('account-name').innerText = user.name || '-';
-                qs('account-email').innerText = user.email || '-';
-                qs('account-password').innerText = user.maskedPassword || '********';
-                qs('account-referral').innerText = user.referralCode || '-';
+                renderProfile(user);
 
                 const orders = await fetchJSON('/api/orders');
                 const activeOrders = orders.filter(o => o.order_status === 'active' || o.order_status === 'otp_received');
@@ -1023,16 +1128,69 @@
             }
         }
 
+        function overviewCard(label, value) {
+            return `
+                <div class="metric-card">
+                    <div class="metric-label">${label}</div>
+                    <div class="metric-value">${value}</div>
+                </div>
+            `;
+        }
+
         async function loadAdminData() {
             try {
+                const overview = await fetchJSON('/api/admin/overview');
+                const users = await fetchJSON('/api/admin/users');
                 const orders = await fetchJSON('/api/admin/orders');
                 const transactions = await fetchJSON('/api/admin/transactions');
 
-                const ordersList = qs('admin-orders-list');
-                ordersList.innerHTML = orders.length ? orders.map(o => `
+                qs('admin-overview-cards').innerHTML = [
+                    overviewCard('Total Users', overview.totalUsers),
+                    overviewCard('Active Users', overview.activeUsers),
+                    overviewCard('Approved Deposits', formatMoney(overview.approvedDeposits)),
+                    overviewCard('Pending Deposits', formatMoney(overview.pendingDeposits)),
+                    overviewCard('User Balances', formatMoney(overview.totalUserBalances)),
+                    overviewCard('Collected Sales', formatMoney(overview.collectedSales)),
+                    overviewCard('Refunded Sales', formatMoney(overview.refundedSales)),
+                    overviewCard('Tracked Cost', formatMoney(overview.totalCost)),
+                    overviewCard('Tracked Profit', formatMoney(overview.totalProfit)),
+                    overviewCard('Net Position', formatMoney(overview.netPosition)),
+                    overviewCard('Live Orders', overview.liveOrders),
+                    overviewCard('Completed Orders', overview.completedOrders)
+                ].join('');
+
+                const usersList = qs('admin-users-list');
+                usersList.innerHTML = users.length ? users.map(u => `
                     <div class="admin-card">
-                        <div><strong>${o.user_email}</strong></div>
-                        <div class="admin-meta">${o.country} • ${o.price} PKR • ${o.order_status}</div>
+                        <div><strong>${u.name || 'No Name'}</strong> — ${u.email}</div>
+                        <div class="admin-meta">
+                            Balance: ${formatMoney(u.balance)}<br>
+                            Approved Deposits: ${formatMoney(u.approved_total)}<br>
+                            Pending Deposits: ${formatMoney(u.pending_total)}<br>
+                            Total Orders: ${u.total_orders} | Live: ${u.live_orders} | Completed: ${u.completed_orders} | Cancelled: ${u.cancelled_orders}<br>
+                            Total Spent: ${formatMoney(u.total_spent)} | Tracked Profit: ${formatMoney(u.tracked_profit)}<br>
+                            Last Login: ${formatDate(u.last_login)}
+                        </div>
+                        <div class="admin-actions">
+                            <button class="mini-btn user-detail-btn" data-id="${u.id}">Open Full Detail</button>
+                        </div>
+                    </div>
+                `).join('') : `<div class="sub-text">No users available.</div>`;
+
+                document.querySelectorAll('.user-detail-btn').forEach(btn => {
+                    btn.addEventListener('click', () => openUserDetail(btn.dataset.id));
+                });
+
+                const ordersList = qs('admin-orders-list');
+                ordersList.innerHTML = orders.length ? orders.slice(0, 50).map(o => `
+                    <div class="admin-card">
+                        <div><strong>${o.user_name || 'Unknown User'}</strong> — ${o.user_email}</div>
+                        <div class="admin-meta">
+                            ${o.country} | ${o.phone_number || 'No Number'}<br>
+                            Charged: ${formatMoney(o.price)} | Cost: ${o.cost_price == null ? 'N/A' : formatMoney(o.cost_price)} | Profit: ${o.profit_amount == null ? 'N/A' : formatMoney(o.profit_amount)}<br>
+                            Status: ${o.order_status} | OTP: ${o.otp_code || 'Not received'}<br>
+                            Search: ${o.search_strategy || 'unknown'} | Provider: ${o.provider_id || 'N/A'}
+                        </div>
                     </div>
                 `).join('') : `<div class="sub-text">No orders available.</div>`;
 
@@ -1059,8 +1217,11 @@
                 const txList = qs('admin-transactions-list');
                 txList.innerHTML = transactions.length ? transactions.map(t => `
                     <div class="admin-card">
-                        <div><strong>${t.user_email}</strong></div>
-                        <div class="admin-meta">Amount: ${t.amount} PKR</div>
+                        <div><strong>${t.user_name || 'Unknown User'}</strong> — ${t.user_email}</div>
+                        <div class="admin-meta">
+                            Amount: ${formatMoney(t.amount)}<br>
+                            Submitted: ${formatDate(t.created_at)}
+                        </div>
                         <div class="admin-actions">
                             <a class="mini-btn" href="/uploads/${t.screenshot}" target="_blank" style="text-decoration:none;">View Screenshot</a>
                             <button class="mini-btn approve-btn" data-id="${t.id}">Approve</button>
@@ -1078,20 +1239,81 @@
                             if (!res.ok) throw new Error(await res.text());
                             showToast('Payment approved', 'success');
                             await loadAdminData();
-                            if (currentUser) {
-                                const me = await fetchJSON('/api/me');
-                                qs('user-balance').innerText = me.balance;
-                            }
+                            await refreshUserInfo();
                         } catch (err) {
                             showToast(err.message, 'error');
                         }
                     });
                 });
-            } catch {}
+            } catch {
+                showToast('Failed to load admin data', 'error');
+            }
         }
 
-        async function login(email, password) {
-            const btn = qs('login-btn');
+        async function openUserDetail(userId) {
+            try {
+                const data = await fetchJSON(`/api/admin/users/${userId}/detail`);
+                const user = data.user;
+                const orders = data.orders || [];
+                const transactions = data.transactions || [];
+
+                qs('user-detail-body').innerHTML = `
+                    <div class="admin-section">
+                        <h4>User Overview</h4>
+                        <div class="detail-list">
+                            <div class="admin-card">
+                                <div><strong>${user.name || 'No Name'}</strong> — ${user.email}</div>
+                                <div class="admin-meta">
+                                    Balance: ${formatMoney(user.balance)}<br>
+                                    Referral: ${user.referralCode || '-'}<br>
+                                    Last Login: ${formatDate(user.last_login)}<br>
+                                    Created At: ${formatDate(user.created_at)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h4>Orders</h4>
+                        <div class="detail-list">
+                            ${orders.length ? orders.map(o => `
+                                <div class="admin-card">
+                                    <div><strong>${o.country}</strong> — ${o.phone_number || 'No Number'}</div>
+                                    <div class="admin-meta">
+                                        Charged: ${formatMoney(o.price)} | Cost: ${o.cost_price == null ? 'N/A' : formatMoney(o.cost_price)} | Profit: ${o.profit_amount == null ? 'N/A' : formatMoney(o.profit_amount)}<br>
+                                        Status: ${o.order_status}<br>
+                                        OTP: ${o.otp_code || 'Not received'}<br>
+                                        Activation ID: ${o.activation_id || '-'}<br>
+                                        Created: ${formatDate(o.created_at)}
+                                    </div>
+                                </div>
+                            `).join('') : `<div class="sub-text">No orders found.</div>`}
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h4>Transactions</h4>
+                        <div class="detail-list">
+                            ${transactions.length ? transactions.map(t => `
+                                <div class="admin-card">
+                                    <div><strong>${formatMoney(t.amount)}</strong> — ${t.status}</div>
+                                    <div class="admin-meta">
+                                        Created: ${formatDate(t.created_at)}
+                                    </div>
+                                </div>
+                            `).join('') : `<div class="sub-text">No transactions found.</div>`}
+                        </div>
+                    </div>
+                `;
+
+                qs('user-detail-modal').style.display = 'flex';
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function login(email, password, fromModal = false) {
+            const btn = fromModal ? qs('modal-login-btn') : qs('login-btn');
             setLoading(btn, 'Signing in...');
             try {
                 const res = await fetch('/api/login', {
@@ -1104,6 +1326,7 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Logged in successfully', 'success');
+                closeModal('auth-required-modal');
                 await checkAuth();
             } catch (err) {
                 showToast(err.message, 'error');
@@ -1112,8 +1335,8 @@
             }
         }
 
-        async function register(name, email, password) {
-            const btn = qs('register-btn');
+        async function register(name, email, password, fromModal = false) {
+            const btn = fromModal ? qs('modal-register-btn') : qs('register-btn');
             setLoading(btn, 'Creating account...');
             try {
                 const res = await fetch('/api/register', {
@@ -1126,7 +1349,11 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Account created. Please login.', 'success');
-                showLoginForm();
+                if (fromModal) {
+                    showModalLoginForm();
+                } else {
+                    showLoginForm();
+                }
             } catch (err) {
                 showToast(err.message, 'error');
             } finally {
@@ -1151,7 +1378,7 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Password changed successfully', 'success');
-                qs('password-modal').style.display = 'none';
+                closeModal('password-modal');
                 qs('current-password').value = '';
                 qs('new-password').value = '';
             } catch (err) {
@@ -1167,6 +1394,8 @@
             qs('user-info').classList.add('hidden');
             qs('login-prompt').classList.remove('hidden');
             qs('admin-panel').style.display = 'none';
+            qs('open-profile-btn').style.display = 'none';
+            qs('mobile-profile-btn').classList.add('hidden');
             stopOrderIntervals();
             stopAdminAlertLoop();
             if (adminRefreshInterval) clearInterval(adminRefreshInterval);
@@ -1182,12 +1411,16 @@
                 currentUser = await res.json();
                 qs('login-prompt').classList.add('hidden');
                 qs('user-info').classList.remove('hidden');
+                qs('open-profile-btn').style.display = 'flex';
+                qs('mobile-profile-btn').classList.remove('hidden');
                 await refreshUserInfo();
                 await requestBrowserNotificationPermission();
             } catch {
                 currentUser = null;
                 qs('login-prompt').classList.remove('hidden');
                 qs('user-info').classList.add('hidden');
+                qs('open-profile-btn').style.display = 'none';
+                qs('mobile-profile-btn').classList.add('hidden');
             }
         }
 
@@ -1205,32 +1438,64 @@
             qs('login-form-wrap').classList.add('hidden');
         }
 
+        function showModalLoginForm() {
+            qs('modal-show-login-tab').classList.add('active');
+            qs('modal-show-register-tab').classList.remove('active');
+            qs('modal-login-wrap').classList.remove('hidden');
+            qs('modal-register-wrap').classList.add('hidden');
+        }
+
+        function showModalRegisterForm() {
+            qs('modal-show-register-tab').classList.add('active');
+            qs('modal-show-login-tab').classList.remove('active');
+            qs('modal-register-wrap').classList.remove('hidden');
+            qs('modal-login-wrap').classList.add('hidden');
+        }
+
         qs('show-login-tab').addEventListener('click', showLoginForm);
         qs('show-register-tab').addEventListener('click', showRegisterForm);
 
+        qs('modal-show-login-tab').addEventListener('click', showModalLoginForm);
+        qs('modal-show-register-tab').addEventListener('click', showModalRegisterForm);
+
         qs('login-btn').addEventListener('click', () => {
-            login(qs('login-email').value.trim(), qs('login-password').value);
+            login(qs('login-email').value.trim(), qs('login-password').value, false);
         });
 
         qs('register-btn').addEventListener('click', () => {
-            register(qs('reg-name').value.trim(), qs('reg-email').value.trim(), qs('reg-password').value);
+            register(qs('reg-name').value.trim(), qs('reg-email').value.trim(), qs('reg-password').value, false);
+        });
+
+        qs('modal-login-btn').addEventListener('click', () => {
+            login(qs('modal-login-email').value.trim(), qs('modal-login-password').value, true);
+        });
+
+        qs('modal-register-btn').addEventListener('click', () => {
+            register(qs('modal-reg-name').value.trim(), qs('modal-reg-email').value.trim(), qs('modal-reg-password').value, true);
         });
 
         qs('google-login-btn').addEventListener('click', () => {
             window.location.href = '/api/auth/google';
         });
 
+        qs('open-profile-btn').addEventListener('click', openProfileModal);
+        qs('mobile-profile-btn').addEventListener('click', openProfileModal);
+
         qs('open-password-modal').addEventListener('click', () => {
             qs('password-modal').style.display = 'flex';
         });
-        qs('close-password-modal').addEventListener('click', () => {
-            qs('password-modal').style.display = 'none';
-        });
+
+        qs('close-profile-modal').addEventListener('click', () => closeModal('profile-modal'));
+        qs('close-password-modal').addEventListener('click', () => closeModal('password-modal'));
         qs('save-password-btn').addEventListener('click', savePassword);
+
+        qs('close-auth-required-modal').addEventListener('click', () => closeModal('auth-required-modal'));
+
+        qs('close-user-detail-modal').addEventListener('click', () => closeModal('user-detail-modal'));
 
         qs('logout-btn').addEventListener('click', logout);
         qs('add-money-btn').addEventListener('click', () => qs('payment-modal').style.display = 'flex');
-        qs('close-payment-modal').addEventListener('click', () => qs('payment-modal').style.display = 'none');
+        qs('close-payment-modal').addEventListener('click', () => closeModal('payment-modal'));
         qs('close-order-modal').addEventListener('click', closeOrderModal);
 
         qs('addFundsForm').addEventListener('submit', async (e) => {
@@ -1249,7 +1514,7 @@
                 if (!res.ok) throw new Error(await res.text());
 
                 showToast('Payment request submitted successfully', 'success', 6000);
-                qs('payment-modal').style.display = 'none';
+                closeModal('payment-modal');
                 e.target.reset();
             } catch (err) {
                 showToast(err.message, 'error');
@@ -1307,10 +1572,13 @@
         qs('country-search').addEventListener('input', renderCountries);
 
         window.addEventListener('click', (e) => {
-            if (e.target === qs('payment-modal')) qs('payment-modal').style.display = 'none';
+            if (e.target === qs('payment-modal')) closeModal('payment-modal');
             if (e.target === qs('order-modal')) closeOrderModal();
-            if (e.target === qs('processing-modal')) qs('processing-modal').style.display = 'none';
-            if (e.target === qs('password-modal')) qs('password-modal').style.display = 'none';
+            if (e.target === qs('processing-modal')) closeModal('processing-modal');
+            if (e.target === qs('password-modal')) closeModal('password-modal');
+            if (e.target === qs('profile-modal')) closeModal('profile-modal');
+            if (e.target === qs('auth-required-modal')) closeModal('auth-required-modal');
+            if (e.target === qs('user-detail-modal')) closeModal('user-detail-modal');
         });
 
         loadCountries();
