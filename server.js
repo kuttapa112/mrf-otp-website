@@ -60,8 +60,6 @@ function normalizeOrder(row) {
     return {
         ...row,
         price: Number(row.price || 0),
-        cost_price: row.cost_price == null ? null : Number(row.cost_price),
-        profit_amount: row.profit_amount == null ? null : Number(row.profit_amount),
         otp_received: row.otp_received
     };
 }
@@ -108,10 +106,6 @@ async function initDB() {
             country_code TEXT,
             country_id INTEGER,
             price NUMERIC(12,2),
-            cost_price NUMERIC(12,2),
-            profit_amount NUMERIC(12,2),
-            provider_id INTEGER,
-            search_strategy TEXT,
             payment_method TEXT,
             payment_status TEXT DEFAULT 'pending',
             order_status TEXT DEFAULT 'pending',
@@ -138,12 +132,7 @@ async function initDB() {
         )
     `);
 
-    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cost_price NUMERIC(12,2)`);
-    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS profit_amount NUMERIC(12,2)`);
-    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS provider_id INTEGER`);
-    await queryRun(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS search_strategy TEXT`);
-
-    const admin = await queryOne('SELECT * FROM users WHERE email = $1', ['admin@mrfotp.com']);
+    const admin = normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', ['admin@mrfotp.com']));
     if (!admin) {
         await queryRun(
             'INSERT INTO users (email, password, name, role, referral_code) VALUES ($1, $2, $3, $4, $5)',
@@ -168,12 +157,37 @@ async function createUser(name, email, password) {
     );
 }
 
-async function updateUserLoginAttempts(userId, attempts) {
-    return queryRun('UPDATE users SET login_attempts = $1 WHERE id = $2', [attempts, userId]);
+async function getPendingTransactions() {
+    const rows = await queryAll('SELECT * FROM transactions WHERE status = $1 ORDER BY id DESC', ['pending']);
+    return rows.map((row) => ({ ...row, amount: Number(row.amount || 0) }));
 }
 
-async function updateUserLastLogin(userId) {
-    return queryRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
+async function approveTransaction(txId) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const txRes = await client.query('SELECT * FROM transactions WHERE id = $1 FOR UPDATE', [txId]);
+        const tx = txRes.rows[0];
+        if (!tx) throw new Error('Transaction not found');
+
+        const userRes = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [tx.user_id]);
+        const user = userRes.rows[0];
+        if (!user) throw new Error('User not found');
+
+        await client.query('UPDATE transactions SET status = $1 WHERE id = $2', ['approved', txId]);
+        await client.query(
+            'UPDATE users SET balance = $1 WHERE id = $2',
+            [Number(user.balance || 0) + Number(tx.amount || 0), tx.user_id]
+        );
+
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
 async function getOrdersByUser(userId) {
@@ -196,64 +210,21 @@ async function updateOrder(orderId, updates) {
     await queryRun(`UPDATE orders SET ${fields} WHERE id = $${values.length}`, values);
 }
 
-async function approveTransaction(txId) {
-    const client = await pool.connect();
-
-    try {
-        await client.query('BEGIN');
-
-        const txRes = await client.query(
-            'SELECT * FROM transactions WHERE id = $1 FOR UPDATE',
-            [txId]
-        );
-        const tx = txRes.rows[0];
-
-        if (!tx) {
-            throw new Error('Transaction not found');
-        }
-
-        if (tx.status !== 'pending') {
-            throw new Error('Transaction already processed');
-        }
-
-        const userRes = await client.query(
-            'SELECT * FROM users WHERE id = $1 FOR UPDATE',
-            [tx.user_id]
-        );
-        const user = userRes.rows[0];
-
-        if (!user) {
-            throw new Error('User not found for this transaction');
-        }
-
-        const newBalance = Number(user.balance || 0) + Number(tx.amount || 0);
-
-        await client.query(
-            'UPDATE users SET balance = $1 WHERE id = $2',
-            [newBalance, tx.user_id]
-        );
-
-        await client.query(
-            'UPDATE transactions SET status = $1 WHERE id = $2',
-            ['approved', txId]
-        );
-
-        await client.query('COMMIT');
-
-        return {
-            success: true,
-            transactionId: txId,
-            userId: tx.user_id,
-            creditedAmount: Number(tx.amount || 0),
-            newBalance
-        };
-    } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-    } finally {
-        client.release();
-    }
+async function getAllOrders() {
+    const rows = await queryAll('SELECT * FROM orders ORDER BY id DESC');
+    return rows.map(normalizeOrder);
 }
+
+async function updateUserLoginAttempts(userId, attempts) {
+    return queryRun('UPDATE users SET login_attempts = $1 WHERE id = $2', [attempts, userId]);
+}
+
+async function updateUserLastLogin(userId) {
+    return queryRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
+}
+
+const SMSBOWER_API_KEY = process.env.SMSBOWER_API_KEY || 'CHANGE_THIS_API_KEY';
+const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -273,12 +244,266 @@ const countries = [
     { name: 'United Kingdom', code: '+44', price: 450, countryId: 16, flag: '🇬🇧' }
 ];
 
+function pkrToUsd(pkr) {
+    return parseFloat((pkr / 280).toFixed(3));
+}
+
 function randomPassword() {
     return crypto.randomBytes(24).toString('hex');
 }
 
 function ensureGoogleConfigured() {
     return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL;
+}
+
+function waitMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseV1NumberResponse(text) {
+    const raw = String(text || '').trim();
+    if (raw.startsWith('ACCESS_NUMBER:')) {
+        const parts = raw.split(':');
+        if (parts.length >= 3) {
+            return {
+                success: true,
+                activationId: parts[1],
+                phoneNumber: parts[2].startsWith('+') ? parts[2] : `+${parts[2]}`
+            };
+        }
+    }
+    return { success: false, error: raw || 'No number available' };
+}
+
+function parseNumberResponse(data) {
+    if (typeof data === 'string') {
+        const trimmed = data.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            try {
+                return parseNumberResponse(JSON.parse(trimmed));
+            } catch {
+                return parseV1NumberResponse(trimmed);
+            }
+        }
+        return parseV1NumberResponse(trimmed);
+    }
+
+    if (data && typeof data === 'object') {
+        if (data.activationId && data.phoneNumber) {
+            return {
+                success: true,
+                activationId: String(data.activationId),
+                phoneNumber: String(data.phoneNumber).startsWith('+')
+                    ? String(data.phoneNumber)
+                    : `+${String(data.phoneNumber)}`
+            };
+        }
+    }
+
+    return { success: false, error: 'No number available' };
+}
+
+function extractProvidersRecursive(node, bucket = [], seen = new Set()) {
+    if (!node || typeof node !== 'object') return bucket;
+
+    if (
+        Object.prototype.hasOwnProperty.call(node, 'provider_id') &&
+        Object.prototype.hasOwnProperty.call(node, 'price')
+    ) {
+        const providerId = Number(node.provider_id);
+        const providerPrice = Number(node.price);
+        if (!Number.isNaN(providerId) && !Number.isNaN(providerPrice)) {
+            const key = `${providerId}:${providerPrice}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                bucket.push({
+                    provider_id: providerId,
+                    price: providerPrice,
+                    count: node.count
+                });
+            }
+        }
+    }
+
+    for (const value of Object.values(node)) {
+        if (value && typeof value === 'object') {
+            extractProvidersRecursive(value, bucket, seen);
+        }
+    }
+
+    return bucket;
+}
+
+async function fetchProviderTiers(countryId, serviceCode = 'wa') {
+    const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getPricesV3&service=${serviceCode}&country=${countryId}`;
+    const response = await axios.get(url, { timeout: 15000 });
+    const data = response.data;
+
+    let providers = [];
+    if (data && typeof data === 'object') {
+        const countryNode =
+            data[String(countryId)] ??
+            data[countryId] ??
+            (Object.keys(data).length === 1 ? Object.values(data)[0] : null);
+
+        const serviceNode =
+            countryNode?.[serviceCode] ??
+            (countryNode && Object.keys(countryNode).length === 1 ? Object.values(countryNode)[0] : null);
+
+        providers = extractProvidersRecursive(serviceNode || data);
+    }
+
+    providers = providers
+        .filter((p) => Number.isFinite(p.provider_id) && Number.isFinite(p.price))
+        .sort((a, b) => a.price - b.price);
+
+    return providers;
+}
+
+async function buyNumberFromProvider(countryId, provider, serviceCode = 'wa') {
+    const url =
+        `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}` +
+        `&action=getNumberV2` +
+        `&service=${serviceCode}` +
+        `&country=${countryId}` +
+        `&maxPrice=${provider.price}` +
+        `&providerIds=${provider.provider_id}`;
+
+    try {
+        const response = await axios.get(url, { timeout: 15000 });
+        const parsed = parseNumberResponse(response.data);
+        if (parsed.success) {
+            return {
+                ...parsed,
+                provider_id: provider.provider_id,
+                provider_price: provider.price
+            };
+        }
+        return { success: false, error: parsed.error || 'No number from provider' };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+}
+
+async function buyNumberByTierStrategy(countryId, clientMaxUsd, serviceCode = 'wa') {
+    try {
+        const providers = await fetchProviderTiers(countryId, serviceCode);
+        const affordableProviders = providers
+            .filter((p) => p.price <= clientMaxUsd + 0.000001)
+            .slice(0, 5);
+
+        if (!affordableProviders.length) {
+            return {
+                success: false,
+                strategy: 'provider_unavailable',
+                error: 'No provider tiers available in your price range'
+            };
+        }
+
+        for (const provider of affordableProviders) {
+            const startedAt = Date.now();
+            let lastError = 'No number from provider';
+
+            while (Date.now() - startedAt < 15000) {
+                const result = await buyNumberFromProvider(countryId, provider, serviceCode);
+                if (result.success) {
+                    return {
+                        success: true,
+                        activationId: result.activationId,
+                        phoneNumber: result.phoneNumber,
+                        strategy: 'provider',
+                        provider_id: result.provider_id,
+                        provider_price: result.provider_price
+                    };
+                }
+
+                lastError = result.error || lastError;
+                const elapsed = Date.now() - startedAt;
+                const remaining = 15000 - elapsed;
+                if (remaining <= 0) break;
+
+                await waitMs(Math.min(5000, remaining));
+            }
+        }
+
+        return {
+            success: false,
+            strategy: 'provider_exhausted',
+            error: 'No number found in lowest 5 price tiers'
+        };
+    } catch (err) {
+        return {
+            success: false,
+            strategy: 'provider_unavailable',
+            error: err.message
+        };
+    }
+}
+
+async function buyNumberWithRetry(countryId, baseUsdPrice, maxAttempts = 3) {
+    const priceSteps = [];
+    for (let i = 0; i < maxAttempts; i++) {
+        priceSteps.push((baseUsdPrice * (1 + i * 0.05)).toFixed(3));
+    }
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const maxPriceUSD = priceSteps[attempt - 1];
+        try {
+            const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getNumber&service=wa&country=${countryId}&maxPrice=${maxPriceUSD}`;
+            const response = await axios.get(url, { timeout: 15000 });
+            const parsed = parseNumberResponse(response.data);
+
+            if (parsed.success) {
+                return {
+                    success: true,
+                    activationId: parsed.activationId,
+                    phoneNumber: parsed.phoneNumber,
+                    strategy: 'fallback'
+                };
+            }
+
+            if (attempt < maxAttempts) {
+                await waitMs(8000);
+            }
+        } catch (err) {
+            if (attempt === maxAttempts) {
+                return { success: false, error: err.message };
+            }
+            await waitMs(8000);
+        }
+    }
+
+    return { success: false, error: 'No number available after all attempts' };
+}
+
+async function getBestAvailableNumber(countryId, clientMaxUsd) {
+    let result = await buyNumberByTierStrategy(countryId, clientMaxUsd, 'wa');
+
+    if (!result.success && result.strategy === 'provider_unavailable') {
+        result = await buyNumberWithRetry(countryId, clientMaxUsd, 3);
+    }
+
+    return result;
+}
+
+async function checkSmsStatus(activationId) {
+    try {
+        const url = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=getStatus&id=${activationId}`;
+        const response = await axios.get(url, { timeout: 15000 });
+        const resText = String(response.data || '').trim();
+
+        if (resText.startsWith('STATUS_OK:')) {
+            return { success: true, code: resText.split(':')[1] };
+        }
+
+        if (resText === 'STATUS_WAIT_CODE') {
+            return { success: true, waiting: true };
+        }
+
+        return { success: false, raw: resText };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
 }
 
 function ensureAuth(req, res, next) {
@@ -311,7 +536,9 @@ app.get('/api/auth/google', (req, res) => {
 });
 
 app.get('/auth/google', (req, res) => {
-    if (!ensureGoogleConfigured()) return res.status(500).send('Google login not configured');
+    if (!ensureGoogleConfigured()) {
+        return res.status(500).send('Google login not configured');
+    }
 
     const state = crypto.randomBytes(16).toString('hex');
     req.session.google_oauth_state = state;
@@ -331,9 +558,12 @@ app.get('/auth/google', (req, res) => {
 
 app.get('/auth/google/callback', async (req, res) => {
     try {
-        if (!ensureGoogleConfigured()) return res.status(500).send('Google login not configured');
+        if (!ensureGoogleConfigured()) {
+            return res.status(500).send('Google login not configured');
+        }
 
         const { code, state, error } = req.query;
+
         if (error) return res.redirect('/?google_error=access_denied');
         if (!code || !state || state !== req.session.google_oauth_state) {
             return res.redirect('/?google_error=invalid_state');
@@ -357,7 +587,9 @@ app.get('/auth/google/callback', async (req, res) => {
         );
 
         const accessToken = tokenResponse.data.access_token;
-        if (!accessToken) return res.redirect('/?google_error=no_access_token');
+        if (!accessToken) {
+            return res.redirect('/?google_error=no_access_token');
+        }
 
         const profileResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -365,7 +597,9 @@ app.get('/auth/google/callback', async (req, res) => {
         });
 
         const profile = profileResponse.data;
-        if (!profile || !profile.email) return res.redirect('/?google_error=no_email');
+        if (!profile || !profile.email) {
+            return res.redirect('/?google_error=no_email');
+        }
 
         let user = await findUser(profile.email);
         if (!user) {
@@ -476,14 +710,75 @@ app.get('/api/logout', (req, res) => {
 });
 
 app.post('/api/order', ensureAuth, async (req, res) => {
-    return res.status(403).send('Order creation is disabled in safe mode');
-});
-
-app.get('/api/orders', ensureAuth, async (req, res) => {
+    const client = await pool.connect();
     try {
-        res.json(await getOrdersByUser(req.session.userId));
+        const { countryName, price, countryId } = req.body;
+        const countryObj = countries.find((c) => c.name === countryName && Number(c.countryId) === Number(countryId));
+        if (!countryObj) return res.status(400).send('Invalid country selected');
+
+        await client.query('BEGIN');
+
+        const userRes = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [req.session.userId]);
+        const user = userRes.rows[0];
+        if (!user) {
+            await client.query('ROLLBACK');
+            return res.status(401).send('User not found');
+        }
+
+        if (Number(user.balance) < Number(price)) {
+            await client.query('ROLLBACK');
+            return res.status(400).send('Insufficient balance. Please add funds.');
+        }
+
+        const clientMaxUsd = pkrToUsd(price);
+        const result = await getBestAvailableNumber(countryId, clientMaxUsd);
+
+        if (!result.success) {
+            await client.query('ROLLBACK');
+            return res.status(500).send('No number available in current low-price tiers. Please try again.');
+        }
+
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+        const cancelAvailableAt = new Date(now.getTime() + 1 * 60 * 1000).toISOString();
+
+        await client.query('UPDATE users SET balance = $1 WHERE id = $2', [
+            Number(user.balance) - Number(price),
+            user.id
+        ]);
+
+        const inserted = await client.query(`
+            INSERT INTO orders (
+                user_id, user_email, service_type, service_name, country, country_code, country_id, price,
+                payment_method, order_status, phone_number, activation_id,
+                expires_at, cancel_available_at, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING id
+        `, [
+            user.id,
+            user.email,
+            'whatsapp',
+            'WhatsApp Number',
+            countryName,
+            countryObj.code,
+            countryObj.countryId,
+            price,
+            'balance',
+            'active',
+            result.phoneNumber,
+            result.activationId,
+            expiresAt,
+            cancelAvailableAt,
+            now.toISOString()
+        ]);
+
+        await client.query('COMMIT');
+        res.json({ id: inserted.rows[0].id, number: result.phoneNumber });
     } catch {
-        res.status(500).send('Server error');
+        await client.query('ROLLBACK');
+        res.status(500).send('Order failed. Please try again.');
+    } finally {
+        client.release();
     }
 });
 
@@ -494,6 +789,7 @@ app.get('/api/orders/:orderId', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user) return res.status(401).send('User not found');
+
         if (order.user_id !== user.id && user.role !== 'admin') {
             return res.status(403).send('Unauthorized');
         }
@@ -504,8 +800,54 @@ app.get('/api/orders/:orderId', ensureAuth, async (req, res) => {
     }
 });
 
+app.get('/api/orders', ensureAuth, async (req, res) => {
+    try {
+        const userOrders = await getOrdersByUser(req.session.userId);
+        res.json(userOrders);
+    } catch {
+        res.status(500).send('Server error');
+    }
+});
+
 app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
-    return res.status(403).send('Replace is disabled in safe mode');
+    try {
+        const order = await getOrderById(Number(req.params.orderId));
+        if (!order) return res.status(404).send('Order not found');
+
+        const user = await findUserById(req.session.userId);
+        if (!user || order.user_id !== user.id) return res.status(403).send('Unauthorized');
+
+        if (order.order_status !== 'active') return res.status(400).send('Cannot replace number now');
+        if (order.otp_received) return res.status(400).send('OTP already received, cannot replace');
+
+        try {
+            const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
+            await axios.get(cancelUrl, { timeout: 15000 });
+        } catch {}
+
+        const clientMaxUsd = pkrToUsd(order.price);
+        const result = await getBestAvailableNumber(order.country_id, clientMaxUsd);
+        if (!result.success) return res.status(500).send('No replacement number available right now');
+
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+        const cancelAvailableAt = new Date(now.getTime() + 1 * 60 * 1000).toISOString();
+
+        await updateOrder(order.id, {
+            phone_number: result.phoneNumber,
+            activation_id: result.activationId,
+            otp_received: false,
+            otp_code: null,
+            order_status: 'active',
+            created_at: now.toISOString(),
+            expires_at: expiresAt,
+            cancel_available_at: cancelAvailableAt
+        });
+
+        res.send('OK');
+    } catch {
+        res.status(500).send('Replace failed');
+    }
 });
 
 app.post('/api/orders/:orderId/cancel', ensureAuth, async (req, res) => {
@@ -539,11 +881,16 @@ app.post('/api/orders/:orderId/cancel', ensureAuth, async (req, res) => {
         }
 
         const now = new Date();
-        const cancelAvailable = new Date(order.cancel_available_at || now);
+        const cancelAvailable = new Date(order.cancel_available_at);
         if (now < cancelAvailable) {
             await client.query('ROLLBACK');
             return res.status(400).send(`Please wait ${Math.ceil((cancelAvailable - now) / 1000)} seconds before cancelling.`);
         }
+
+        try {
+            const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
+            await axios.get(cancelUrl, { timeout: 15000 });
+        } catch {}
 
         await client.query('UPDATE users SET balance = $1 WHERE id = $2', [
             Number(user.balance || 0) + Number(order.price || 0),
@@ -569,6 +916,12 @@ app.post('/api/orders/:orderId/complete', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user || order.user_id !== user.id) return res.status(403).send('Unauthorized');
+        if (!order.otp_received) return res.status(400).send('Cannot complete without OTP');
+
+        try {
+            const completeUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=6`;
+            await axios.get(completeUrl, { timeout: 15000 });
+        } catch {}
 
         await updateOrder(order.id, {
             order_status: 'completed',
@@ -588,9 +941,17 @@ app.post('/api/orders/:orderId/expire', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user) return res.status(401).send('User not found');
-        if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
+
+        if (order.user_id !== user.id && user.role !== 'admin') {
+            return res.status(403).send('Unauthorized');
+        }
 
         if (order.order_status === 'active' && !order.otp_received) {
+            try {
+                const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
+                await axios.get(cancelUrl, { timeout: 15000 });
+            } catch {}
+
             await updateOrder(order.id, { order_status: 'cancelled' });
         }
 
@@ -607,15 +968,77 @@ app.get('/api/orders/:orderId/otp', ensureAuth, async (req, res) => {
 
         const user = await findUserById(req.session.userId);
         if (!user) return res.status(401).send('User not found');
-        if (order.user_id !== user.id && user.role !== 'admin') return res.status(403).send('Unauthorized');
+
+        if (order.user_id !== user.id && user.role !== 'admin') {
+            return res.status(403).send('Unauthorized');
+        }
 
         if (order.otp_received) {
             return res.json({ received: true, code: order.otp_code });
         }
 
-        return res.json({ received: false, waiting: true });
+        if (!order.activation_id) {
+            return res.json({ received: false, error: 'No activation ID' });
+        }
+
+        const now = new Date();
+        const expiry = new Date(order.expires_at);
+
+        if (now >= expiry && !order.otp_received && order.order_status === 'active') {
+            try {
+                const cancelUrl = `${SMSBOWER_URL}?api_key=${SMSBOWER_API_KEY}&action=setStatus&id=${order.activation_id}&status=8`;
+                await axios.get(cancelUrl, { timeout: 15000 });
+            } catch {}
+
+            await updateOrder(order.id, { order_status: 'cancelled' });
+            return res.json({ received: false, expired: true });
+        }
+
+        const smsResult = await checkSmsStatus(order.activation_id);
+
+        if (smsResult.success && smsResult.code) {
+            await updateOrder(order.id, {
+                otp_received: true,
+                otp_code: smsResult.code,
+                order_status: 'otp_received'
+            });
+            return res.json({ received: true, code: smsResult.code });
+        }
+
+        if (smsResult.success && smsResult.waiting) {
+            return res.json({ received: false, waiting: true });
+        }
+
+        return res.json({ received: false, error: true });
     } catch {
         res.status(500).json({ received: false, error: true });
+    }
+});
+
+app.get('/api/admin/orders', ensureAdmin, async (req, res) => {
+    try {
+        const allOrders = await getAllOrders();
+        res.json(allOrders);
+    } catch {
+        res.status(500).send('Server error');
+    }
+});
+
+app.get('/api/admin/transactions', ensureAdmin, async (req, res) => {
+    try {
+        const pending = await getPendingTransactions();
+        res.json(pending);
+    } catch {
+        res.status(500).send('Server error');
+    }
+});
+
+app.post('/api/admin/transactions/:txId/approve', ensureAdmin, async (req, res) => {
+    try {
+        await approveTransaction(Number(req.params.txId));
+        res.send('OK');
+    } catch {
+        res.status(404).send('Transaction not found');
     }
 });
 
@@ -638,235 +1061,6 @@ app.post('/api/add-funds', ensureAuth, upload.single('screenshot'), async (req, 
         res.send('OK');
     } catch {
         res.status(500).send('Server error');
-    }
-});
-
-app.get('/api/admin/overview', ensureAdmin, async (req, res) => {
-    try {
-        const userStats = await queryOne(`
-            SELECT
-                COUNT(*) FILTER (WHERE role = 'user')::int AS total_users,
-                COUNT(*) FILTER (WHERE role = 'user' AND is_active = TRUE)::int AS active_users,
-                COALESCE(SUM(CASE WHEN role = 'user' THEN balance ELSE 0 END), 0) AS total_user_balances
-            FROM users
-        `);
-
-        const orderStats = await queryOne(`
-            SELECT
-                COUNT(*)::int AS total_orders,
-                COUNT(*) FILTER (WHERE order_status = 'completed')::int AS completed_orders,
-                COUNT(*) FILTER (WHERE order_status = 'cancelled')::int AS cancelled_orders,
-                COUNT(*) FILTER (WHERE order_status IN ('active', 'otp_received'))::int AS live_orders,
-                COUNT(*) FILTER (WHERE cost_price IS NOT NULL)::int AS tracked_cost_orders,
-                COALESCE(SUM(CASE WHEN order_status <> 'cancelled' THEN price ELSE 0 END), 0) AS collected_sales,
-                COALESCE(SUM(CASE WHEN order_status = 'cancelled' THEN price ELSE 0 END), 0) AS refunded_sales,
-                COALESCE(SUM(CASE WHEN order_status <> 'cancelled' THEN cost_price ELSE 0 END), 0) AS total_cost,
-                COALESCE(SUM(CASE WHEN order_status <> 'cancelled' THEN profit_amount ELSE 0 END), 0) AS total_profit
-            FROM orders
-        `);
-
-        const transactionStats = await queryOne(`
-            SELECT
-                COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
-                COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) AS approved_deposits,
-                COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_deposits
-            FROM transactions
-        `);
-
-        res.json({
-            totalUsers: Number(userStats.total_users || 0),
-            activeUsers: Number(userStats.active_users || 0),
-            totalUserBalances: Number(userStats.total_user_balances || 0),
-            totalOrders: Number(orderStats.total_orders || 0),
-            completedOrders: Number(orderStats.completed_orders || 0),
-            cancelledOrders: Number(orderStats.cancelled_orders || 0),
-            liveOrders: Number(orderStats.live_orders || 0),
-            trackedCostOrders: Number(orderStats.tracked_cost_orders || 0),
-            collectedSales: Number(orderStats.collected_sales || 0),
-            refundedSales: Number(orderStats.refunded_sales || 0),
-            totalCost: Number(orderStats.total_cost || 0),
-            totalProfit: Number(orderStats.total_profit || 0),
-            pendingPayments: Number(transactionStats.pending_count || 0),
-            approvedDeposits: Number(transactionStats.approved_deposits || 0),
-            pendingDeposits: Number(transactionStats.pending_deposits || 0),
-            netPosition: Number(transactionStats.approved_deposits || 0) - Number(userStats.total_user_balances || 0)
-        });
-    } catch {
-        res.status(500).send('Server error');
-    }
-});
-
-app.get('/api/admin/users', ensureAdmin, async (req, res) => {
-    try {
-        const rows = await queryAll(`
-            SELECT
-                u.id,
-                u.name,
-                u.email,
-                u.balance,
-                u.is_active,
-                u.last_login,
-                u.created_at,
-                COALESCE(tx.approved_total, 0) AS approved_total,
-                COALESCE(tx.pending_total, 0) AS pending_total,
-                COALESCE(ord.total_orders, 0) AS total_orders,
-                COALESCE(ord.completed_orders, 0) AS completed_orders,
-                COALESCE(ord.live_orders, 0) AS live_orders,
-                COALESCE(ord.cancelled_orders, 0) AS cancelled_orders,
-                COALESCE(ord.total_spent, 0) AS total_spent,
-                COALESCE(ord.tracked_profit, 0) AS tracked_profit
-            FROM users u
-            LEFT JOIN (
-                SELECT
-                    user_id,
-                    SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END) AS approved_total,
-                    SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS pending_total
-                FROM transactions
-                GROUP BY user_id
-            ) tx ON tx.user_id = u.id
-            LEFT JOIN (
-                SELECT
-                    user_id,
-                    COUNT(*) AS total_orders,
-                    COUNT(*) FILTER (WHERE order_status = 'completed') AS completed_orders,
-                    COUNT(*) FILTER (WHERE order_status IN ('active', 'otp_received')) AS live_orders,
-                    COUNT(*) FILTER (WHERE order_status = 'cancelled') AS cancelled_orders,
-                    SUM(CASE WHEN order_status <> 'cancelled' THEN price ELSE 0 END) AS total_spent,
-                    SUM(CASE WHEN order_status <> 'cancelled' THEN COALESCE(profit_amount, 0) ELSE 0 END) AS tracked_profit
-                FROM orders
-                GROUP BY user_id
-            ) ord ON ord.user_id = u.id
-            WHERE u.role = 'user'
-            ORDER BY u.created_at DESC
-        `);
-
-        res.json(rows.map((row) => ({
-            ...row,
-            balance: Number(row.balance || 0),
-            approved_total: Number(row.approved_total || 0),
-            pending_total: Number(row.pending_total || 0),
-            total_spent: Number(row.total_spent || 0),
-            tracked_profit: Number(row.tracked_profit || 0)
-        })));
-    } catch {
-        res.status(500).send('Server error');
-    }
-});
-
-app.get('/api/admin/users/:userId/detail', ensureAdmin, async (req, res) => {
-    try {
-        const userId = Number(req.params.userId);
-        const user = await queryOne(`
-            SELECT id, name, email, balance, is_active, last_login, created_at, referral_code
-            FROM users
-            WHERE id = $1
-        `, [userId]);
-
-        if (!user) return res.status(404).send('User not found');
-
-        const orders = await queryAll(`
-            SELECT *
-            FROM orders
-            WHERE user_id = $1
-            ORDER BY id DESC
-        `, [userId]);
-
-        const transactions = await queryAll(`
-            SELECT *
-            FROM transactions
-            WHERE user_id = $1
-            ORDER BY id DESC
-        `, [userId]);
-
-        res.json({
-            user: {
-                ...user,
-                balance: Number(user.balance || 0),
-                referralCode: user.referral_code
-            },
-            orders: orders.map(normalizeOrder),
-            transactions: transactions.map((row) => ({
-                ...row,
-                amount: Number(row.amount || 0)
-            }))
-        });
-    } catch {
-        res.status(500).send('Server error');
-    }
-});
-
-app.get('/api/admin/orders', ensureAdmin, async (req, res) => {
-    try {
-        const rows = await queryAll(`
-            SELECT
-                o.*,
-                u.name AS user_name
-            FROM orders o
-            LEFT JOIN users u ON u.id = o.user_id
-            ORDER BY o.id DESC
-        `);
-
-        res.json(rows.map((row) => ({
-            ...normalizeOrder(row),
-            user_name: row.user_name
-        })));
-    } catch {
-        res.status(500).send('Server error');
-    }
-});
-
-app.get('/api/admin/transactions', ensureAdmin, async (req, res) => {
-    try {
-        const rows = await queryAll(`
-            SELECT
-                t.*,
-                u.name AS user_name
-            FROM transactions t
-            LEFT JOIN users u ON u.id = t.user_id
-            WHERE t.status = 'pending'
-            ORDER BY t.id DESC
-        `);
-
-        res.json(rows.map((row) => ({
-            ...row,
-            amount: Number(row.amount || 0)
-        })));
-    } catch {
-        res.status(500).send('Server error');
-    }
-});
-
-app.post('/api/admin/transactions/:txId/approve', ensureAdmin, async (req, res) => {
-    try {
-        const txId = Number(req.params.txId);
-
-        if (!Number.isInteger(txId) || txId <= 0) {
-            return res.status(400).send('Invalid transaction id');
-        }
-
-        const result = await approveTransaction(txId);
-
-        return res.json({
-            success: true,
-            message: 'Transaction approved successfully',
-            data: result
-        });
-    } catch (err) {
-        console.error('Approve transaction error:', err);
-
-        if (err.message === 'Transaction not found') {
-            return res.status(404).send('Transaction not found');
-        }
-
-        if (err.message === 'Transaction already processed') {
-            return res.status(400).send('Transaction already processed');
-        }
-
-        if (err.message === 'User not found for this transaction') {
-            return res.status(404).send('User not found for this transaction');
-        }
-
-        return res.status(500).send('Failed to approve transaction');
     }
 });
 
