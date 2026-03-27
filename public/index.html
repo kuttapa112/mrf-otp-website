@@ -145,6 +145,34 @@
         .admin-meta{color:var(--muted);font-size:13px;line-height:1.6;margin:8px 0 12px}
         .admin-actions{display:flex;gap:8px;flex-wrap:wrap}
         .account-card{padding:18px;border-radius:24px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+        .account-header{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            margin-bottom:0;
+        }
+        .account-heading h3{font-size:18px}
+        .account-heading p{font-size:13px;color:var(--muted)}
+        .account-toggle-btn{
+            width:42px;
+            height:42px;
+            border-radius:14px;
+            border:1px solid var(--border);
+            background:rgba(255,255,255,.05);
+            color:var(--text);
+            font-size:24px;
+            font-weight:800;
+            cursor:pointer;
+            line-height:1;
+            flex-shrink:0;
+        }
+        .account-toggle-btn:hover{
+            background:rgba(255,255,255,.09);
+        }
+        .account-content{
+            margin-top:14px;
+        }
         .account-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
         .account-row:last-child{border-bottom:none}
         .account-label{color:var(--muted);font-size:13px}
@@ -394,31 +422,34 @@
                     </div>
 
                     <div class="account-card">
-                        <div class="section-title" style="margin-bottom:10px;">
-                            <div>
-                                <h3 style="font-size:18px;">Account Details</h3>
+                        <div class="account-header">
+                            <div class="account-heading">
+                                <h3>Account Details</h3>
                                 <p>Professional profile section</p>
                             </div>
+                            <button type="button" class="account-toggle-btn" id="account-toggle-btn">+</button>
                         </div>
 
-                        <div class="account-row">
-                            <div class="account-label">Full Name</div>
-                            <div class="account-value" id="account-name">-</div>
-                        </div>
-                        <div class="account-row">
-                            <div class="account-label">Email / Gmail</div>
-                            <div class="account-value" id="account-email">-</div>
-                        </div>
-                        <div class="account-row">
-                            <div class="account-label">Password</div>
-                            <div class="account-value" id="account-password">********</div>
-                        </div>
-                        <div class="account-row">
-                            <div class="account-label">Referral Code</div>
-                            <div class="account-value" id="account-referral">-</div>
-                        </div>
+                        <div class="account-content hidden" id="account-details-content">
+                            <div class="account-row">
+                                <div class="account-label">Full Name</div>
+                                <div class="account-value" id="account-name">-</div>
+                            </div>
+                            <div class="account-row">
+                                <div class="account-label">Email / Gmail</div>
+                                <div class="account-value" id="account-email">-</div>
+                            </div>
+                            <div class="account-row">
+                                <div class="account-label">Password</div>
+                                <div class="account-value" id="account-password">********</div>
+                            </div>
+                            <div class="account-row">
+                                <div class="account-label">Referral Code</div>
+                                <div class="account-value" id="account-referral">-</div>
+                            </div>
 
-                        <button class="btn btn-soft wide-btn" id="open-password-modal">Change Password</button>
+                            <button class="btn btn-soft wide-btn" id="open-password-modal">Change Password</button>
+                        </div>
                     </div>
 
                     <div class="panel-block">
@@ -629,6 +660,16 @@
         }
 
         function qs(id) { return document.getElementById(id); }
+
+        function setAccountDetailsExpanded(expanded) {
+            const content = qs('account-details-content');
+            const toggleBtn = qs('account-toggle-btn');
+            if (!content || !toggleBtn) return;
+
+            content.classList.toggle('hidden', !expanded);
+            toggleBtn.innerText = expanded ? '−' : '+';
+            toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
 
         function setLoading(button, text) {
             button.dataset.original = button.innerHTML;
@@ -1227,6 +1268,13 @@
             qs('password-modal').style.display = 'none';
         });
         qs('save-password-btn').addEventListener('click', savePassword);
+
+        setAccountDetailsExpanded(false);
+
+        qs('account-toggle-btn').addEventListener('click', () => {
+            const isHidden = qs('account-details-content').classList.contains('hidden');
+            setAccountDetailsExpanded(isHidden);
+        });
 
         qs('logout-btn').addEventListener('click', logout);
         qs('add-money-btn').addEventListener('click', () => qs('payment-modal').style.display = 'flex');
