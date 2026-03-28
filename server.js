@@ -69,11 +69,13 @@ app.use(session({
     }),
     name: 'mrf.sid',
     secret: SESSION_SECRET,
+    proxy: true,
     resave: false,
     saveUninitialized: false,
     rolling: true,
+    unset: 'destroy',
     cookie: {
-        secure: IS_PROD,
+        secure: 'auto',
         httpOnly: true,
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7
@@ -740,13 +742,18 @@ app.get('/auth/google/callback', async (req, res) => {
         if (!user) return res.redirect('/?google_error=user_create_failed');
         if (!user.is_active) return res.redirect('/?google_error=account_blocked');
 
-        req.session.regenerate(async (regenErr) => {
+        await updateUserLastLogin(user.id);
+        await updateUserLoginAttempts(user.id, 0);
+
+        req.session.regenerate((regenErr) => {
             if (regenErr) return res.redirect('/?google_error=session_failed');
 
             req.session.userId = user.id;
-            await updateUserLastLogin(user.id);
-            await updateUserLoginAttempts(user.id, 0);
-            return res.redirect('/');
+
+            req.session.save((saveErr) => {
+                if (saveErr) return res.redirect('/?google_error=session_save_failed');
+                return res.redirect('/');
+            });
         });
     } catch {
         return res.redirect('/?google_error=oauth_failed');
@@ -809,15 +816,25 @@ app.post('/api/login', async (req, res) => {
         await updateUserLoginAttempts(user.id, 0);
         await updateUserLastLogin(user.id);
 
-        req.session.regenerate(async (regenErr) => {
+        req.session.regenerate((regenErr) => {
             if (regenErr) {
+                console.error('Session regenerate error:', regenErr);
                 return res.status(500).send('Login failed');
             }
 
             req.session.userId = user.id;
-            return res.json({ success: true });
+
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('Session save error:', saveErr);
+                    return res.status(500).send('Login failed');
+                }
+
+                return res.json({ success: true });
+            });
         });
     } catch (err) {
+        console.error('Login route error:', err);
         res.status(500).send(formatSafeError(err));
     }
 });
