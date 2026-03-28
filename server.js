@@ -5,24 +5,58 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 
-const UPLOAD_DIR = '/app/uploads';
+/**
+ * =========================================================
+ * Basic config
+ * =========================================================
+ */
+const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const IS_PROD = NODE_ENV === 'production';
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || '/app/uploads';
 if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 const upload = multer({ dest: UPLOAD_DIR });
 
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+    console.error('DATABASE_URL is required');
+    process.exit(1);
+}
+
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
+    console.error('SESSION_SECRET is missing or too short. Use a strong secret of at least 32 characters.');
+    process.exit(1);
+}
+
+const SMSBOWER_API_KEY = process.env.SMSBOWER_API_KEY || 'CHANGE_THIS_API_KEY';
+const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL;
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_NAME = process.env.ADMIN_NAME || 'Admin';
+
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS || 12);
+
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production'
-        ? { rejectUnauthorized: false }
-        : false
+    connectionString: DATABASE_URL,
+    ssl: IS_PROD ? { rejectUnauthorized: false } : false
 });
 
+app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
@@ -33,17 +67,24 @@ app.use(session({
         tableName: 'user_sessions',
         createTableIfMissing: true
     }),
-    secret: process.env.SESSION_SECRET || 'change_this_session_secret',
+    name: 'mrf.sid',
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
-        secure: false,
+        secure: IS_PROD,
         httpOnly: true,
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24 * 7
     }
 }));
 
+/**
+ * =========================================================
+ * Helpers
+ * =========================================================
+ */
 function normalizeUser(row) {
     if (!row) return null;
     return {
@@ -78,6 +119,67 @@ async function queryRun(sql, params = []) {
     return pool.query(sql, params);
 }
 
+function isPasswordHashed(password) {
+    return typeof password === 'string' && /^\$2[aby]\$\d{2}\$/.test(password);
+}
+
+async function hashPassword(password) {
+    return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+async function verifyPassword(inputPassword, storedPassword) {
+    if (!storedPassword || typeof storedPassword !== 'string') {
+        return { valid: false, needsUpgrade: false };
+    }
+
+    if (isPasswordHashed(storedPassword)) {
+        const valid = await bcrypt.compare(inputPassword, storedPassword);
+        return { valid, needsUpgrade: false };
+    }
+
+    const valid = inputPassword === storedPassword;
+    return { valid, needsUpgrade: valid };
+}
+
+function sanitizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validatePassword(password) {
+    return typeof password === 'string' && password.length >= 6;
+}
+
+function randomPassword() {
+    return crypto.randomBytes(24).toString('hex');
+}
+
+function ensureGoogleConfigured() {
+    return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL;
+}
+
+function waitMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function pkrToUsd(pkr) {
+    return parseFloat((pkr / 280).toFixed(3));
+}
+
+function formatSafeError(err, fallback = 'Server error') {
+    if (!err) return fallback;
+    if (typeof err.message === 'string' && err.message.trim()) return err.message;
+    return fallback;
+}
+
+/**
+ * =========================================================
+ * Database init
+ * =========================================================
+ */
 async function initDB() {
     await queryRun(`
         CREATE TABLE IF NOT EXISTS users (
@@ -132,17 +234,33 @@ async function initDB() {
         )
     `);
 
-    const admin = normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', ['admin@mrfotp.com']));
-    if (!admin) {
-        await queryRun(
-            'INSERT INTO users (email, password, name, role, referral_code) VALUES ($1, $2, $3, $4, $5)',
-            ['admin@mrfotp.com', 'admin123', 'Admin', 'admin', 'ADMIN']
-        );
+    if (ADMIN_EMAIL && ADMIN_PASSWORD) {
+        const adminEmail = sanitizeEmail(ADMIN_EMAIL);
+        const existingAdmin = normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', [adminEmail]));
+
+        if (!existingAdmin) {
+            const hashedAdminPassword = await hashPassword(ADMIN_PASSWORD);
+            await queryRun(
+                'INSERT INTO users (email, password, name, role, referral_code) VALUES ($1, $2, $3, $4, $5)',
+                [adminEmail, hashedAdminPassword, ADMIN_NAME, 'admin', 'ADMIN']
+            );
+            console.log('Admin user created from environment variables');
+        } else if (existingAdmin.role !== 'admin') {
+            await queryRun('UPDATE users SET role = $1 WHERE id = $2', ['admin', existingAdmin.id]);
+            console.log('Existing admin email promoted to admin role');
+        }
+    } else {
+        console.log('ADMIN_EMAIL / ADMIN_PASSWORD not set, skipping admin auto-create');
     }
 }
 
+/**
+ * =========================================================
+ * User / order db functions
+ * =========================================================
+ */
 async function findUser(email) {
-    return normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', [email]));
+    return normalizeUser(await queryOne('SELECT * FROM users WHERE email = $1', [sanitizeEmail(email)]));
 }
 
 async function findUserById(id) {
@@ -151,10 +269,21 @@ async function findUserById(id) {
 
 async function createUser(name, email, password) {
     const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const hashedPassword = await hashPassword(password);
+
     return queryRun(
         'INSERT INTO users (email, password, name, referral_code) VALUES ($1, $2, $3, $4)',
-        [email, password, name, referralCode]
+        [sanitizeEmail(email), hashedPassword, String(name || '').trim(), referralCode]
     );
+}
+
+async function updateUserPassword(userId, newPlainPassword) {
+    const hashed = await hashPassword(newPlainPassword);
+    return queryRun('UPDATE users SET password = $1 WHERE id = $2', [hashed, userId]);
+}
+
+async function updateUserPasswordHash(userId, hashedPassword) {
+    return queryRun('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
 }
 
 async function getPendingTransactions() {
@@ -223,13 +352,11 @@ async function updateUserLastLogin(userId) {
     return queryRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
 }
 
-const SMSBOWER_API_KEY = process.env.SMSBOWER_API_KEY || 'CHANGE_THIS_API_KEY';
-const SMSBOWER_URL = 'https://smsbower.page/stubs/handler_api.php';
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL;
-
+/**
+ * =========================================================
+ * Countries
+ * =========================================================
+ */
 const countries = [
     { name: 'South Africa', code: '+27', price: 170, countryId: 31, flag: '🇿🇦' },
     { name: 'Indonesia', code: '+62', price: 200, countryId: 6, flag: '🇮🇩' },
@@ -244,22 +371,11 @@ const countries = [
     { name: 'United Kingdom', code: '+44', price: 450, countryId: 16, flag: '🇬🇧' }
 ];
 
-function pkrToUsd(pkr) {
-    return parseFloat((pkr / 280).toFixed(3));
-}
-
-function randomPassword() {
-    return crypto.randomBytes(24).toString('hex');
-}
-
-function ensureGoogleConfigured() {
-    return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL;
-}
-
-function waitMs(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
+/**
+ * =========================================================
+ * SMSBower helpers
+ * =========================================================
+ */
 function parseV1NumberResponse(text) {
     const raw = String(text || '').trim();
     if (raw.startsWith('ACCESS_NUMBER:')) {
@@ -506,6 +622,11 @@ async function checkSmsStatus(activationId) {
     }
 }
 
+/**
+ * =========================================================
+ * Auth middlewares
+ * =========================================================
+ */
 function ensureAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).send('Login required');
     next();
@@ -523,6 +644,11 @@ async function ensureAdmin(req, res, next) {
     }
 }
 
+/**
+ * =========================================================
+ * Routes
+ * =========================================================
+ */
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -614,75 +740,112 @@ app.get('/auth/google/callback', async (req, res) => {
         if (!user) return res.redirect('/?google_error=user_create_failed');
         if (!user.is_active) return res.redirect('/?google_error=account_blocked');
 
-        req.session.userId = user.id;
-        await updateUserLastLogin(user.id);
-        await updateUserLoginAttempts(user.id, 0);
+        req.session.regenerate(async (regenErr) => {
+            if (regenErr) return res.redirect('/?google_error=session_failed');
 
-        return res.redirect('/');
+            req.session.userId = user.id;
+            await updateUserLastLogin(user.id);
+            await updateUserLoginAttempts(user.id, 0);
+            return res.redirect('/');
+        });
     } catch {
         return res.redirect('/?google_error=oauth_failed');
     }
 });
 
 app.post('/api/register', async (req, res) => {
-    const { name, email, password } = req.body;
     try {
+        const name = String(req.body.name || '').trim();
+        const email = sanitizeEmail(req.body.email);
+        const password = req.body.password;
+
+        if (!name) return res.status(400).send('Name is required');
+        if (!validateEmail(email)) return res.status(400).send('Valid email is required');
+        if (!validatePassword(password)) return res.status(400).send('Password must be at least 6 characters');
+
         const existing = await findUser(email);
         if (existing) return res.status(400).send('Email already exists');
 
         await createUser(name, email, password);
         res.json({ success: true });
-    } catch {
-        res.status(500).send('Server error');
+    } catch (err) {
+        res.status(500).send(formatSafeError(err));
     }
 });
 
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
     try {
+        const email = sanitizeEmail(req.body.email);
+        const password = req.body.password;
+
+        if (!validateEmail(email)) return res.status(400).send('Valid email is required');
+        if (typeof password !== 'string' || !password) return res.status(400).send('Password is required');
+
         const user = await findUser(email);
-
-        if (user && user.password === password) {
-            if (!user.is_active) return res.status(401).send('Account blocked');
-
-            req.session.userId = user.id;
-            await updateUserLastLogin(user.id);
-            await updateUserLoginAttempts(user.id, 0);
-
-            return res.json({ success: true });
+        if (!user) {
+            return res.status(401).send('Invalid credentials');
         }
 
-        if (user) {
+        if (!user.is_active) {
+            return res.status(401).send('Account blocked');
+        }
+
+        const passwordCheck = await verifyPassword(password, user.password);
+
+        if (!passwordCheck.valid) {
             const newAttempts = Number(user.login_attempts || 0) + 1;
             await updateUserLoginAttempts(user.id, newAttempts);
             if (newAttempts >= 5) {
                 await queryRun('UPDATE users SET is_active = FALSE WHERE id = $1', [user.id]);
             }
+            return res.status(401).send('Invalid credentials');
         }
 
-        res.status(401).send('Invalid credentials');
-    } catch {
-        res.status(500).send('Server error');
+        if (passwordCheck.needsUpgrade) {
+            const upgradedHash = await hashPassword(password);
+            await updateUserPasswordHash(user.id, upgradedHash);
+        }
+
+        await updateUserLoginAttempts(user.id, 0);
+        await updateUserLastLogin(user.id);
+
+        req.session.regenerate(async (regenErr) => {
+            if (regenErr) {
+                return res.status(500).send('Login failed');
+            }
+
+            req.session.userId = user.id;
+            return res.json({ success: true });
+        });
+    } catch (err) {
+        res.status(500).send(formatSafeError(err));
     }
 });
 
 app.post('/api/change-password', ensureAuth, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
-        if (!newPassword || String(newPassword).length < 6) {
+
+        if (typeof currentPassword !== 'string' || !currentPassword) {
+            return res.status(400).send('Current password is required');
+        }
+
+        if (!validatePassword(newPassword)) {
             return res.status(400).send('New password must be at least 6 characters');
         }
 
         const user = await findUserById(req.session.userId);
         if (!user) return res.status(404).send('User not found');
-        if (user.password !== currentPassword) {
+
+        const passwordCheck = await verifyPassword(currentPassword, user.password);
+        if (!passwordCheck.valid) {
             return res.status(400).send('Current password is incorrect');
         }
 
-        await queryRun('UPDATE users SET password = $1 WHERE id = $2', [newPassword, user.id]);
+        await updateUserPassword(user.id, newPassword);
         res.send('OK');
-    } catch {
-        res.status(500).send('Server error');
+    } catch (err) {
+        res.status(500).send(formatSafeError(err));
     }
 });
 
@@ -706,7 +869,10 @@ app.get('/api/me', ensureAuth, async (req, res) => {
 });
 
 app.get('/api/logout', (req, res) => {
-    req.session.destroy(() => res.send('OK'));
+    req.session.destroy(() => {
+        res.clearCookie('mrf.sid');
+        res.send('OK');
+    });
 });
 
 app.post('/api/order', ensureAuth, async (req, res) => {
@@ -774,9 +940,9 @@ app.post('/api/order', ensureAuth, async (req, res) => {
 
         await client.query('COMMIT');
         res.json({ id: inserted.rows[0].id, number: result.phoneNumber });
-    } catch {
+    } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).send('Order failed. Please try again.');
+        res.status(500).send(formatSafeError(err, 'Order failed. Please try again.'));
     } finally {
         client.release();
     }
@@ -845,8 +1011,8 @@ app.post('/api/orders/:orderId/replace', ensureAuth, async (req, res) => {
         });
 
         res.send('OK');
-    } catch {
-        res.status(500).send('Replace failed');
+    } catch (err) {
+        res.status(500).send(formatSafeError(err, 'Replace failed'));
     }
 });
 
@@ -901,9 +1067,9 @@ app.post('/api/orders/:orderId/cancel', ensureAuth, async (req, res) => {
 
         await client.query('COMMIT');
         res.send('OK');
-    } catch {
+    } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).send('Cancel failed');
+        res.status(500).send(formatSafeError(err, 'Cancel failed'));
     } finally {
         client.release();
     }
@@ -929,8 +1095,8 @@ app.post('/api/orders/:orderId/complete', ensureAuth, async (req, res) => {
         });
 
         res.send('OK');
-    } catch {
-        res.status(500).send('Complete failed');
+    } catch (err) {
+        res.status(500).send(formatSafeError(err, 'Complete failed'));
     }
 });
 
@@ -956,8 +1122,8 @@ app.post('/api/orders/:orderId/expire', ensureAuth, async (req, res) => {
         }
 
         res.send('OK');
-    } catch {
-        res.status(500).send('Expire failed');
+    } catch (err) {
+        res.status(500).send(formatSafeError(err, 'Expire failed'));
     }
 });
 
@@ -1037,8 +1203,8 @@ app.post('/api/admin/transactions/:txId/approve', ensureAdmin, async (req, res) 
     try {
         await approveTransaction(Number(req.params.txId));
         res.send('OK');
-    } catch {
-        res.status(404).send('Transaction not found');
+    } catch (err) {
+        res.status(404).send(formatSafeError(err, 'Transaction not found'));
     }
 });
 
@@ -1059,18 +1225,22 @@ app.post('/api/add-funds', ensureAuth, upload.single('screenshot'), async (req, 
         );
 
         res.send('OK');
-    } catch {
-        res.status(500).send('Server error');
+    } catch (err) {
+        res.status(500).send(formatSafeError(err));
     }
 });
 
-app.use('/uploads', express.static('/app/uploads'));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
+/**
+ * =========================================================
+ * Boot
+ * =========================================================
+ */
 initDB()
     .then(() => {
-        const PORT = process.env.PORT || 3000;
         app.listen(PORT, '0.0.0.0', () => {
-            console.log(`Server running on http://localhost:${PORT}`);
+            console.log(`Server running on http://0.0.0.0:${PORT}`);
         });
     })
     .catch((err) => {
